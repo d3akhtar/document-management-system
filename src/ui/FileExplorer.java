@@ -7,11 +7,15 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.util.ArrayList;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 public class FileExplorer extends JPanel {
 
@@ -66,7 +70,45 @@ public class FileExplorer extends JPanel {
         table.getColumnModel().getColumn(4).setPreferredWidth(5);
 
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer(){
-            
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                // Striped rows
+                if (row % 2 == 0){
+                    component.setBackground(Color.WHITE);
+                }
+                else{
+                    component.setBackground(new Color(240, 240, 240));
+                }
+                
+                return component;
+            }
+        });
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(new Color(70,70,70));
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("SansSerif", Font.BOLD, 14));
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 45));
+
+        table.addMouseListener(new MouseAdapter() {
+          @Override
+          public void mouseClicked(MouseEvent e) {
+            int row = table.rowAtPoint(e.getPoint()); // Get the row that was clicked
+            if (row >= 0) {
+                // If a directory was clicked, go into the directory, otherwise, open the file
+                String type = table.getValueAt(row, 3).toString();
+                String rowName = table.getValueAt(row, 0).toString();
+                System.out.println("Row with name: " + rowName + " was clicked");
+                if (type == "dir"){
+                    System.out.println("Going into directory!");
+                }
+                else{
+                    System.out.println("Opening file!");
+                }
+            }
+          } 
         });
 
         return table;
@@ -76,6 +118,7 @@ public class FileExplorer extends JPanel {
     {
         JPanel menu = new JPanel();
         menu.setLayout(new FlowLayout());
+        menu.setBackground(new Color(200, 200, 200));
 
         JButton backButton = createButtonWithImagePath("/images/backButton.png");
         backButton.addActionListener(new ActionListener() {
@@ -84,6 +127,7 @@ public class FileExplorer extends JPanel {
                 System.out.println("Go up a directory");
             }
         });
+        backButton.setToolTipText("Go up a directory");
 
         JButton forwardButton = createButtonWithImagePath("/images/forwardButton.png");
         forwardButton.addActionListener(new ActionListener() {
@@ -92,10 +136,17 @@ public class FileExplorer extends JPanel {
                 System.out.println("Go down a directory you have been through");
             }
         });
+        forwardButton.setToolTipText("Go down a directory you have been through");
 
-        JTextField currentPathField = new JTextField();
+        JTextField currentPathField = new JTextField(){
+            @Override
+            public Insets getInsets() {
+                return new Insets(5, 10, 5, 10); // add padding
+            }
+        };
         currentPathField.setMinimumSize(new Dimension(800, currentPathField.getPreferredSize().height));
         currentPathField.setPreferredSize(new Dimension(800, currentPathField.getPreferredSize().height));
+        currentPathField.setToolTipText("The path of the current directory");
         
         JTextField searchField = createSearchTextField();
 
@@ -110,7 +161,13 @@ public class FileExplorer extends JPanel {
 
     private JTextField createSearchTextField()
     {
-        JTextField searchField = new JTextField("Search by file or directory name...");
+        JTextField searchField = new JTextField("Search by file or directory name..."){
+            @Override
+            public Insets getInsets() {
+                return new Insets(5, 10, 5, 10); // add padding
+            }
+        };
+
         searchField.setForeground(Color.GRAY);
         searchField.setMinimumSize(new Dimension(300, searchField.getPreferredSize().height));
         searchField.setPreferredSize(new Dimension(300, searchField.getPreferredSize().height));
@@ -139,6 +196,8 @@ public class FileExplorer extends JPanel {
                 }
             }
         });
+        searchField.setToolTipText("Search entries by name. Type something then press ENTER");
+        searchField.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
         return searchField;
     }
@@ -190,8 +249,6 @@ public class FileExplorer extends JPanel {
 
     private Object[][] getFilteredData(String searchQuery)
     {
-        System.out.println("Filtering data...");
-
         ArrayList<Object[]> filteredData = new ArrayList<>();
 
         Object[][] data = getSampleData();
