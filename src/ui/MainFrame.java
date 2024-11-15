@@ -37,16 +37,16 @@ public class MainFrame extends JFrame
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setBounds(100, 100, 1280, 720);
 
-        initComponents();
-
         if (connection != null){
+
+            initComponents();
+
             tabbedPane.add("File Explorer", new FileExplorer(new DocumentRepository(connection)));
             tabbedPane.add("Document Editor", new DocumentEditor(new DocumentRepository(connection)));
-            tabbedPane.add("Login Screen", new LoginScreen());
             tabbedPane.add("Team Explorer", new TeamExplorer(new TeamRepository(connection)));
-        }
 
-        setContentPane(tabbedPane);
+            setContentPane(tabbedPane);
+        }
     }
 
     private void initComponents()
