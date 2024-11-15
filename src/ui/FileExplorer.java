@@ -17,13 +17,18 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
+import repository.DocumentRepository;
+
 public class FileExplorer extends JPanel {
 
     private String searchQuery;
     private DefaultTableModel directoryContentsTableModel;
 
-    public FileExplorer()
+    private DocumentRepository docRepo;
+
+    public FileExplorer(DocumentRepository docRepo)
     {
+        this.docRepo = docRepo;
         String[] columnNames = {"Name", "Date Created", "Date Modified", "Type", "Size"};
 
         directoryContentsTableModel = new DefaultTableModel(new Object[][] {}, columnNames){
