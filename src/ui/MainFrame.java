@@ -8,6 +8,7 @@ import javax.swing.*;
 
 import repository.DocumentRepository;
 import repository.TeamRepository;
+import repository.UserRepository;
 
 public class MainFrame extends JFrame
 {
@@ -31,6 +32,7 @@ public class MainFrame extends JFrame
     
     public MainFrame()
     {
+        currentUser = null;
         attemptConnection();
 
         window = this;
@@ -38,6 +40,27 @@ public class MainFrame extends JFrame
         setBounds(100, 100, 1280, 720);
 
         if (connection != null){
+            while (currentUser == null)
+            {
+                LoginDialog loginDialog = new LoginDialog(this, new UserRepository(connection));
+                loginDialog.setVisible(true);
+
+                if (currentUser == null){
+                    int option = JOptionPane.showOptionDialog(
+                        this, 
+                        "You haven't logged in or signed up. Close app, or try again?", 
+                        "Authentication Status", 
+                        0, 
+                        1, 
+                        null, 
+                        new String[] { "Close", "Try Again"}, 
+                        null);
+                    
+                    if (option == 0) {
+                        System.exit(0);
+                    }
+                }
+            }
 
             initComponents();
 

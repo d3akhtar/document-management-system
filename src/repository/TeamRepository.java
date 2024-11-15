@@ -49,10 +49,10 @@ public class TeamRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(team_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO team VALUES (?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, team.ownerId);
+                statement.setInt(1, nextId);
+                statement.setInt(2, team.ownerId);
                 statement.setString(3, team.teamName);
-                statement.setString(3, team.teamDescription);
+                statement.setString(4, team.teamDescription);
                 return statement.executeUpdate() > 0;
             }
             else {
@@ -73,9 +73,9 @@ public class TeamRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(user_team_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO user_team VALUES (?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, team.teamId);
-                statement.setInt(2, user.userId);
+                statement.setInt(1, nextId);
+                statement.setInt(2, team.teamId);
+                statement.setInt(3, user.userId);
                 return statement.executeUpdate() > 0;
             }
             else {
@@ -92,8 +92,8 @@ public class TeamRepository {
     {
         try {
             PreparedStatement statement = connection.prepareStatement("DELETE FROM user_team WHERE user_id=? AND team_id=?");
-            statement.setInt(0, user.userId);
-            statement.setInt(1, team.teamId);
+            statement.setInt(1, user.userId);
+            statement.setInt(2, team.teamId);
             return statement.executeUpdate() > 0;
         } catch (Exception e) {
             System.err.println("An error occured while removing user: " + user.username + " from team: " + team.teamName);

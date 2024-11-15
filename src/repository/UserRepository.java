@@ -17,26 +17,32 @@ public class UserRepository {
     }
 
     // Normally, we would hash the password, then check with the database, but for now, we are directly checking
-    public void login(String email, String password)
+    public boolean login(String email, String password)
     {
         // Try to find a user with given details, if found, set current user in MainFrame, otherwise return
         String loginQuery = 
         "SELECT user_id,username,email from doc_user\r\n" + //
-        "WHERE email=" + email + "\r\n" + //
-        "AND password_hash=" + password;
+        "WHERE email=?\r\n" + //
+        "AND password_hash=?";
 
         try {
             PreparedStatement statement = connection.prepareStatement(loginQuery);
+            statement.setString(1, email);
+            statement.setString(2, password);
             ResultSet rs = statement.executeQuery();
             if (rs.next()){
                 int userId = rs.getInt("user_id");
                 String username = rs.getString("username");
                 
                 MainFrame.window.currentUser = new User(userId, username, email);
+                return true;
+            } else {
+                return false;
             }
         } catch (Exception e){
             System.err.println("An error occured while attempting to login");
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -48,11 +54,16 @@ public class UserRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(user_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO doc_user VALUES (?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setString(1, username);
-                statement.setString(2, email);
-                statement.setString(3, password);
-                return statement.executeUpdate() > 0;
+                statement.setInt(1, nextId);
+                statement.setString(2, username);
+                statement.setString(3, email);
+                statement.setString(4, password);
+                if (statement.executeUpdate() > 0) {
+                    MainFrame.window.currentUser = new User(nextId, username, email);
+                    return true;
+                } else {
+                    return false;
+                }
             } else {
                 return false;
             }

@@ -141,12 +141,12 @@ public class DocumentRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(version_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO doc_version VALUES (?,?,?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, version.fileId);
-                statement.setInt(2, version.ownerId);
-                statement.setInt(3, version.versionNumber);
-                statement.setTimestamp(4, version.dateModified);
-                statement.setBlob(5, version.content);
+                statement.setInt(1, nextId);
+                statement.setInt(2, version.fileId);
+                statement.setInt(3, version.ownerId);
+                statement.setInt(4, version.versionNumber);
+                statement.setTimestamp(5, version.dateModified);
+                statement.setBlob(6, version.content);
                 return statement.executeUpdate() > 0 && updateFileSize(version.fileId, newFileSize);
             } else {
                 return false;
@@ -166,11 +166,11 @@ public class DocumentRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(comment_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO doc_comment VALUES (?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, comment.fileId);
-                statement.setInt(2, comment.createdBy);
-                statement.setString(3, comment.content);
-                statement.setTimestamp(4, comment.timePosted);
+                statement.setInt(1, nextId);
+                statement.setInt(2, comment.fileId);
+                statement.setInt(3, comment.createdBy);
+                statement.setString(4, comment.content);
+                statement.setTimestamp(5, comment.timePosted);
                 return statement.executeUpdate() > 0;
             } else {
                 return false;
@@ -202,15 +202,15 @@ public class DocumentRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(folder_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO document VALUES (?,?,?,?,?,?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, document.ownerId);
-                statement.setInt(2, document.parentFolderId);
-                statement.setInt(3, document.createdBy);
-                statement.setInt(4, document.fileSize);
-                statement.setTimestamp(5, document.dateCreated);
-                statement.setTimestamp(6, document.dateModified);
-                statement.setString(7, document.fileType);
-                statement.setString(8, document.fileName);
+                statement.setInt(1, nextId);
+                statement.setInt(2, document.ownerId);
+                statement.setInt(3, document.parentFolderId);
+                statement.setInt(4, document.createdBy);
+                statement.setInt(5, document.fileSize);
+                statement.setTimestamp(6, document.dateCreated);
+                statement.setTimestamp(7, document.dateModified);
+                statement.setString(8, document.fileType);
+                statement.setString(9, document.fileName);
                 return statement.executeUpdate() > 0;
             } else {
                 return false;
@@ -242,14 +242,14 @@ public class DocumentRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(folder_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO folder VALUES (?,?,?,?,?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, folder.ownerId);
-                statement.setInt(2, folder.parentFolderId);
-                statement.setInt(3, folder.createdBy);
-                statement.setTimestamp(4, folder.dateCreated);
-                statement.setTimestamp(5, folder.dateModified);
-                statement.setString(6, "dir");
-                statement.setString(7, folder.folderName);
+                statement.setInt(1, nextId);
+                statement.setInt(2, folder.ownerId);
+                statement.setInt(3, folder.parentFolderId);
+                statement.setInt(4, folder.createdBy);
+                statement.setTimestamp(5, folder.dateCreated);
+                statement.setTimestamp(6, folder.dateModified);
+                statement.setString(7, "dir");
+                statement.setString(8, folder.folderName);
                 return statement.executeUpdate() > 0;
             } else {
                 return false;
@@ -281,12 +281,12 @@ public class DocumentRepository {
             if (rs.next()){
                 int nextId = rs.getInt("max(permission_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO doc_user VALUES (?,?,?,?,?,?)");
-                statement.setInt(0, nextId);
-                statement.setInt(1, permission.fileId);
-                statement.setInt(2, permission.folderId);
-                statement.setInt(3, permission.userId);
-                statement.setInt(4, permission.teamId);
-                statement.setInt(5, permission.abilities);
+                statement.setInt(1, nextId);
+                statement.setInt(2, permission.fileId);
+                statement.setInt(3, permission.folderId);
+                statement.setInt(4, permission.userId);
+                statement.setInt(5, permission.teamId);
+                statement.setInt(6, permission.abilities);
                 return statement.executeUpdate() > 0;
             } else {
                 return false;
