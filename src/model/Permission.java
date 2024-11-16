@@ -5,8 +5,8 @@ public class Permission {
     public int permissionId;
     public Integer fileId;
     public Integer folderId;
-    public int userId;
-    public int teamId;
+    public Integer userId;
+    public Integer teamId;
     public int abilities;
 
     enum Ability 
@@ -16,7 +16,7 @@ public class Permission {
         EDIT
     };
 
-    public Permission(int permissionId, Integer fileId, Integer folderId, int userId, int teamId, int abilities) {
+    public Permission(int permissionId, Integer fileId, Integer folderId, Integer userId, Integer teamId, int abilities) {
         this.permissionId = permissionId;
         this.fileId = fileId;
         this.folderId = folderId;

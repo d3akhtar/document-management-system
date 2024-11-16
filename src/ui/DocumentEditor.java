@@ -12,8 +12,9 @@ import repository.DocumentRepository;
 public class DocumentEditor extends JPanel {
 
     private DocumentRepository docRepo;
+    private Document document;
 
-    public DocumentEditor(DocumentRepository docRepo)
+    public DocumentEditor(Document document, DocumentRepository docRepo)
     {
         this.docRepo = docRepo;
 

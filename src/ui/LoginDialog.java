@@ -100,7 +100,6 @@ public class LoginDialog extends JDialog {
     {
         String email = loginEmailField.getText();
         String password = new String(loginPasswordField.getPassword());
-        System.out.println("Email: " + email + ", Password: " + password);
 
         boolean success = userRepo.login(email, password);
         if (success){

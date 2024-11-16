@@ -25,10 +25,11 @@ CREATE TABLE folder (
     date_modified                           TIMESTAMP NOT NULL,
     folder_type                             VARCHAR(5) NOT NULL,
     folder_name                             VARCHAR(255) DEFAULT 'Untitled',
-    CONSTRAINT folder_parent_folder_id_fk   FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder ( parent_folder_id ),
-    CONSTRAINT folder_created_by_fk         FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ),
-    CONSTRAINT folder_owner_id_fk           FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ),
-    CONSTRAINT folder_pk                    PRIMARY KEY ( folder_id )
+    CONSTRAINT folder_parent_folder_id_fk   FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder ( parent_folder_id ) ON DELETE CASCADE,
+    CONSTRAINT folder_created_by_fk         FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT folder_owner_id_fk           FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT folder_pk                    PRIMARY KEY ( folder_id ),
+    CONSTRAINT unique_folder_in_folder      UNIQUE ( parent_folder_id,folder_name )
 );
 
 CREATE TABLE document (
@@ -41,10 +42,11 @@ CREATE TABLE document (
     date_modified                           TIMESTAMP NOT NULL,
     file_type                               VARCHAR(5) NOT NULL,
     file_name                               VARCHAR(255) DEFAULT 'Untitled',
-    CONSTRAINT file_parent_folder_id_fk     FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder ( parent_folder_id ),
-    constraint file_created_by_fk           FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ),
-    constraint file_owner_id_fk             FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ),
-    constraint document_pk                  PRIMARY KEY ( file_id )
+    CONSTRAINT file_parent_folder_id_fk     FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder ( parent_folder_id ) ON DELETE CASCADE,
+    CONSTRAINT file_created_by_fk           FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT file_owner_id_fk             FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT document_pk                  PRIMARY KEY ( file_id ),
+    CONSTRAINT unique_file_in_folder        UNIQUE ( parent_folder_id,file_name )
 );
 
 CREATE TABLE team (
@@ -52,8 +54,8 @@ CREATE TABLE team (
     owner_id                                INTEGER,
     team_name                               VARCHAR(255) NOT NULL,
     team_description                        VARCHAR(255) NOT NULL,
-    constraint team_owner_id_fk             FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ),
-    constraint team_pk                      PRIMARY KEY ( team_id )
+    CONSTRAINT team_owner_id_fk             FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ),
+    CONSTRAINT team_pk                      PRIMARY KEY ( team_id )
 );
 
 -- For the nxm relationship between users and groups
@@ -61,9 +63,9 @@ CREATE TABLE user_team (
     user_team_id                            INTEGER,
     team_id                                 INTEGER,
     user_id                                 INTEGER,
-    constraint user_team_id_pk              PRIMARY KEY ( user_team_id ),
-    constraint user_team_fk_team            FOREIGN KEY ( team_id ) REFERENCES team ( team_id ),
-    constraint user_team_fk_user            FOREIGN KEY ( user_id ) REFERENCES doc_user ( user_id )
+    CONSTRAINT user_team_id_pk              PRIMARY KEY ( user_team_id ),
+    CONSTRAINT user_team_fk_team            FOREIGN KEY ( team_id ) REFERENCES team ( team_id ),
+    CONSTRAINT user_team_fk_user            FOREIGN KEY ( user_id ) REFERENCES doc_user ( user_id )
 );
 
 CREATE TABLE shortcut (
@@ -72,10 +74,10 @@ CREATE TABLE shortcut (
     destination_id                          INTEGER,
     parent_folder_id                        INTEGER,
     destination_path                        VARCHAR(255),
-    constraint shortcut_created_by_fk       FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ),
-    constraint destination_id_fk            FOREIGN KEY ( destination_id ) REFERENCES document ( file_id ),
-    constraint shortcut_parent_folder       FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder(parent_folder_id),
-    constraint shortcut_pk                  PRIMARY KEY ( shortcut_id )
+    CONSTRAINT shortcut_created_by_fk       FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ),
+    CONSTRAINT destination_id_fk            FOREIGN KEY ( destination_id ) REFERENCES document ( file_id ),
+    CONSTRAINT shortcut_parent_folder       FOREIGN KEY ( parent_folder_id ) REFERENCES parent_folder(parent_folder_id),
+    CONSTRAINT shortcut_pk                  PRIMARY KEY ( shortcut_id )
 );
 
 CREATE TABLE doc_comment (
@@ -84,9 +86,9 @@ CREATE TABLE doc_comment (
     created_by                              INTEGER,
     content                                 VARCHAR(255) NOT NULL,
     time_posted                             TIMESTAMP NOT NULL,
-    constraint comment_file_id_fk           FOREIGN KEY ( file_id ) REFERENCES document ( file_id ),
-    constraint comment_created_by_fk        FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ),
-    constraint doc_comment_pk               PRIMARY KEY ( comment_id )
+    CONSTRAINT comment_file_id_fk           FOREIGN KEY ( file_id ) REFERENCES document ( file_id ) ON DELETE CASCADE,
+    CONSTRAINT comment_created_by_fk        FOREIGN KEY ( created_by ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT doc_comment_pk               PRIMARY KEY ( comment_id )
 );
 
 CREATE TABLE permission
@@ -100,10 +102,10 @@ CREATE TABLE permission
    -- 1 represents view-only, 2 represents comment, 3 represents edit perms
    abilities                                INTEGER CHECK(abilities BETWEEN 1 AND 3),
 
-   CONSTRAINT file_id_fk                    FOREIGN KEY (file_id) REFERENCES document(file_id),
-   CONSTRAINT folder_id_fk                  FOREIGN KEY (folder_id) REFERENCES folder(folder_id),
-   CONSTRAINT user_id_fk                    FOREIGN KEY (user_id) REFERENCES doc_user(user_id),
-   CONSTRAINT group_id_fk                   FOREIGN KEY (team_id) REFERENCES team(team_id),
+   CONSTRAINT file_id_fk                    FOREIGN KEY (file_id) REFERENCES document(file_id) ON DELETE CASCADE,
+   CONSTRAINT folder_id_fk                  FOREIGN KEY (folder_id) REFERENCES folder(folder_id) ON DELETE CASCADE,
+   CONSTRAINT user_id_fk                    FOREIGN KEY (user_id) REFERENCES doc_user(user_id) ON DELETE CASCADE,
+   CONSTRAINT group_id_fk                   FOREIGN KEY (team_id) REFERENCES team(team_id) ON DELETE CASCADE,
    CONSTRAINT permission_pk                 PRIMARY KEY (permission_id)
 );
 
@@ -114,7 +116,7 @@ CREATE TABLE doc_version (
     version_number                          INTEGER NOT NULL,
     date_modified                           TIMESTAMP NOT NULL,
     content                                 BLOB,
-    constraint version_file_id_fk           FOREIGN KEY ( file_id ) REFERENCES document ( file_id ),
-    constraint version_owner_id_fk          FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ),
-    constraint version_pk                   PRIMARY KEY ( version_id )
+    CONSTRAINT version_file_id_fk           FOREIGN KEY ( file_id ) REFERENCES document ( file_id ) ON DELETE CASCADE,
+    CONSTRAINT version_owner_id_fk          FOREIGN KEY ( owner_id ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE,
+    CONSTRAINT version_pk                   PRIMARY KEY ( version_id )
 );

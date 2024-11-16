@@ -18,6 +18,18 @@ import ui.MainFrame;
 import ui.MainFrame.User;
 
 public class DocumentRepository {
+
+    // This class is used when getting children folders
+    class CondensedFolderData
+    {
+        public int folderId;
+        public String folderName;
+
+        public CondensedFolderData(int folderId, String folderName) {
+            this.folderId = folderId;
+            this.folderName = folderName;
+        }
+    }
     
     private Connection connection;
 
@@ -35,7 +47,7 @@ public class DocumentRepository {
         "JOIN PERMISSION p on p.user_id=" + Integer.toString(userId) + " AND p.file_id=d.file_id\n" + //
         "WHERE d.PARENT_FOLDER_ID " + (parentFolderId == 0 ? "IS NULL":"=" + Integer.toString(parentFolderId)) + "\r\n" +
         "UNION\n" + //
-        "SELECT f.folder_id AS `Id`, f.folder_name AS `Name`, f.folder_type AS `Type`, f.date_created AS `Date Created`, f.date_modified AS `Date Modified`, f.folder_size AS `Size`\n" + //
+        "SELECT f.folder_id AS `Id`, f.folder_name AS `Name`, f.folder_type AS `Type`, f.date_created AS `Date Created`, f.date_modified AS `Date Modified`, -1 AS `Size`\n" + //
         "FROM folder f\n" + //
         "JOIN PERMISSION p on p.user_id=" + Integer.toString(userId) + " AND p.folder_id=f.folder_id\n" + //
         "WHERE f.PARENT_FOLDER_ID " + (parentFolderId == 0 ? "IS NULL":"=" + Integer.toString(parentFolderId)) + "\r\n" + //
@@ -91,6 +103,70 @@ public class DocumentRepository {
             }
         } catch (Exception e) {
             System.err.println("An error occured while retrieving latest version for file with id: " + fileId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Document getDocumentById(int documentId, int userId)
+    {
+        String documentQuery = 
+        "SELECT d.file_id,owner_id,parent_folder_id,created_by,file_size,date_created,date_modified,file_type,file_name FROM document d \r\n" + //
+        "JOIN permission p on p.file_id=d.file_id AND p.user_id=" + Integer.toString(userId) + "\r\n" + //
+        "WHERE d.file_id=" + Integer.toString(documentId);
+        try {
+            PreparedStatement statement = connection.prepareStatement(documentQuery);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()) {
+                int ownerId = rs.getInt("owner_id");
+                Integer parentFolderId = rs.getInt("parent_folder_id");
+                int createdBy = rs.getInt("created_by");
+                int fileSize = rs.getInt("file_size");
+                Timestamp dateCreated = rs.getTimestamp("date_created");
+                Timestamp dateModified = rs.getTimestamp("date_modified");
+                String fileType = rs.getString("file_type");
+                String fileName = rs.getString("file_name");
+                return new Document(fileSize, ownerId, parentFolderId, createdBy, fileSize, dateCreated, dateModified, fileType, fileName);
+            } else { 
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving document with id: " + documentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String getPathOfFolder(int parentFolderId)
+    {
+        if (parentFolderId == 0) return "";
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT folder_path FROM parent_folder WHERE parent_folder_id=" + parentFolderId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                return rs.getString("folder_path");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving folder path with parentFolderId: " + parentFolderId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Integer getParentFolderIdOfFolder(int folderId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM folder WHERE folder_id=" + folderId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("parent_folder_id");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving parentFolderId of folder with id: " + folderId);
             e.printStackTrace();
             return null;
         }
@@ -197,21 +273,24 @@ public class DocumentRepository {
     public boolean addDocument(Document document)
     {
         try {
-            PreparedStatement statement = connection.prepareStatement("SELECT max(folder_id) FROM folder");
+            PreparedStatement statement = connection.prepareStatement("SELECT max(file_id) FROM document");
             ResultSet rs = statement.executeQuery();
             if (rs.next()){
-                int nextId = rs.getInt("max(folder_id)") + 1;
+                int nextId = rs.getInt("max(file_id)") + 1;
                 statement = connection.prepareStatement("INSERT INTO document VALUES (?,?,?,?,?,?,?,?,?)");
                 statement.setInt(1, nextId);
                 statement.setInt(2, document.ownerId);
-                statement.setInt(3, document.parentFolderId);
+                statement.setObject(3, document.parentFolderId);
                 statement.setInt(4, document.createdBy);
                 statement.setInt(5, document.fileSize);
                 statement.setTimestamp(6, document.dateCreated);
                 statement.setTimestamp(7, document.dateModified);
                 statement.setString(8, document.fileType);
                 statement.setString(9, document.fileName);
-                return statement.executeUpdate() > 0;
+                return 
+                    statement.executeUpdate() > 0 && 
+                    addUserPermForItem(new Permission(0, nextId, null, document.ownerId, null, 3)) && 
+                    addFileVersion(new Version(0, nextId, document.ownerId, 1, document.dateCreated, null), document.fileSize);
             } else {
                 return false;
             }
@@ -225,7 +304,7 @@ public class DocumentRepository {
     public boolean deleteDocument(int documentId)
     {
         try {
-            PreparedStatement statement = connection.prepareStatement("DELETE FROM document WHERE document_id=" + documentId);
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM document WHERE file_id=" + documentId);
             return statement.executeUpdate() > 0;
         } catch (Exception e) {
             System.err.println("An error occured while removing document with id: " + documentId);
@@ -244,13 +323,16 @@ public class DocumentRepository {
                 statement = connection.prepareStatement("INSERT INTO folder VALUES (?,?,?,?,?,?,?,?)");
                 statement.setInt(1, nextId);
                 statement.setInt(2, folder.ownerId);
-                statement.setInt(3, folder.parentFolderId);
+                statement.setObject(3, folder.parentFolderId);
                 statement.setInt(4, folder.createdBy);
                 statement.setTimestamp(5, folder.dateCreated);
                 statement.setTimestamp(6, folder.dateModified);
-                statement.setString(7, "dir");
+                statement.setString(7, folder.folderType); // always going to be "dir"
                 statement.setString(8, folder.folderName);
-                return statement.executeUpdate() > 0;
+                return 
+                    statement.executeUpdate() > 0 &&
+                    addUserPermForItem(new Permission(0, null, nextId, folder.ownerId, null, 3)) &&
+                    addParentFolder(nextId, folder.folderName);
             } else {
                 return false;
             }
@@ -273,19 +355,102 @@ public class DocumentRepository {
         }
     }
 
-    public boolean addUserPermForDocument(Permission permission)
+    public boolean updateFolderName(int folderId, String newName)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("UPDATE folder SET folder_name=? WHERE folder_id=" + folderId);
+            statement.setString(1, newName);
+            return statement.executeUpdate() > 0 && updateParentFolderPath(folderId, newName);
+        } catch (Exception e) {
+            System.err.println("An error occured while updating name of folder with id: " + folderId);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean updateDocumentName(int documentId, String newName)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("UPDATE document SET file_name=? WHERE file_id=" + documentId);
+            statement.setString(1, newName);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("An error occured while updating name of file with id: " + documentId);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Update parentFolder path based on new name
+    public boolean updateParentFolderPath(int parentFolderId, String newName)
+    {
+        if (parentFolderId == 0) return true;
+
+        try {
+            PreparedStatement statement = connection.prepareStatement("UPDATE parent_folder SET folder_path=? WHERE parent_folder_id=" + parentFolderId);
+            statement.setString(1, getPathOfFolder(getParentFolderIdOfFolder(parentFolderId)) + "/" + newName);
+            if (statement.executeUpdate() <= 0) return false;
+
+            ArrayList<CondensedFolderData> children = getChildFoldersOfParentFolder(parentFolderId);
+            for (CondensedFolderData cfd : children){
+                if (!updateParentFolderPath(cfd.folderId, cfd.folderName)) { return false; }
+            }
+            return true;
+            
+        } catch (Exception e) {
+            System.err.println("An error occured while updating path of parent folder with id: " + parentFolderId);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Return a list of objects, each containing the child folder id and name 
+    public ArrayList<CondensedFolderData> getChildFoldersOfParentFolder(int parentFolderId)
+    {
+        ArrayList<CondensedFolderData> children = new ArrayList<CondensedFolderData>();
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT folder_id,folder_name FROM folder WHERE parent_folder_id=" + parentFolderId);
+            ResultSet rs = statement.executeQuery();
+            while (rs.next()) {
+                int folderId = rs.getInt("folder_id");
+                String folderName = rs.getString("folder_name");
+                children.add(new CondensedFolderData(folderId, folderName));
+            }
+            return children;
+        } catch (Exception e) {
+            System.err.println("An error occured while getting children folder ids of parent folder with id: " + parentFolderId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public boolean addParentFolder(int folderId, String name)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("INSERT INTO parent_folder VALUES (?,?)");
+            statement.setInt(1, folderId);
+            statement.setString(2, getPathOfFolder(getParentFolderIdOfFolder(folderId)) + "/" + name);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("An error occured while trying to add parent folder");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean addUserPermForItem(Permission permission)
     {
         try {
             PreparedStatement statement = connection.prepareStatement("SELECT max(permission_id) FROM permission");
             ResultSet rs = statement.executeQuery();
             if (rs.next()){
                 int nextId = rs.getInt("max(permission_id)") + 1;
-                statement = connection.prepareStatement("INSERT INTO doc_user VALUES (?,?,?,?,?,?)");
+                statement = connection.prepareStatement("INSERT INTO permission VALUES (?,?,?,?,?,?)");
                 statement.setInt(1, nextId);
-                statement.setInt(2, permission.fileId);
-                statement.setInt(3, permission.folderId);
-                statement.setInt(4, permission.userId);
-                statement.setInt(5, permission.teamId);
+                statement.setObject(2, permission.fileId);
+                statement.setObject(3, permission.folderId);
+                statement.setObject(4, permission.userId);
+                statement.setObject(5, permission.teamId);
                 statement.setInt(6, permission.abilities);
                 return statement.executeUpdate() > 0;
             } else {

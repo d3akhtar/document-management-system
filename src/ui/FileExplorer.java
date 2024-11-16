@@ -10,28 +10,112 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Stack;
 
 import javax.swing.*;
+import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
+import model.Document;
+import model.Folder;
+import model.FolderContent;
 import repository.DocumentRepository;
 
 public class FileExplorer extends JPanel {
 
+    class FolderContentTableModel extends AbstractTableModel
+    {
+        private String[] columnNames = {"Name", "Date Created", "Date Modified", "Type", "Size (kb)"};
+        private ArrayList<FolderContent> folderContents;
+        
+        public FolderContentTableModel(ArrayList<FolderContent> folderContents) {
+            this.folderContents = folderContents;
+        }
+
+        @Override
+        public int getRowCount() {
+            return folderContents.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return columnNames.length;
+        }
+
+        public void addRow(FolderContent fc) { 
+            folderContents.add(fc); 
+            fireTableRowsInserted(getRowCount()-1, getRowCount());
+        }
+        public void clear() { 
+            int prevRowCount = getRowCount();
+            folderContents.clear(); 
+            fireTableRowsDeleted(0, prevRowCount);
+        }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            FolderContent fc = folderContents.get(rowIndex);
+            switch (columnIndex) {
+                case 0: return fc.name;
+                case 1: return fc.dateCreated;
+                case 2: return fc.dateModified;
+                case 3: return fc.type;
+                case 4: return fc.size == -1 ? "":fc.size;
+                default: return null;
+            }
+        }
+
+        public int getFolderContentIdForRow(int rowIndex)
+        {
+            return folderContents.get(rowIndex).id;
+        }
+
+        @Override
+        public String getColumnName(int column) {
+            return columnNames[column];
+        }
+    }
+
     private String searchQuery;
-    private DefaultTableModel directoryContentsTableModel;
+    private FolderContentTableModel folderContentsTableModel;
 
     private DocumentRepository docRepo;
 
+    private int currentParentFolderId;
+    
+    // For undoing and redoing
+    private Stack<Integer> parentFolderIdUndoHistory;
+    private Stack<Integer> parentFolderIdRedoHistory;
+    
+    // Keep currentPathField reference to change every update
+    private JTextField currentPathField;
+
+    // Keep track of right-clicked item to refer to it when updating
+    private int folderContentId;
+    private boolean isDir;
+
+    // Keep track of update folder content popup menu to show it when we want without creating a new one
+    private JPopupMenu updateFolderContentPopupMenu;
+
     public FileExplorer(DocumentRepository docRepo)
     {
-        this.docRepo = docRepo;
-        String[] columnNames = {"Name", "Date Created", "Date Modified", "Type", "Size"};
+        folderContentId = 0;
+        isDir = true;
 
-        directoryContentsTableModel = new DefaultTableModel(new Object[][] {}, columnNames){
+        currentParentFolderId = 0;
+        parentFolderIdUndoHistory = new Stack<Integer>();
+        parentFolderIdRedoHistory = new Stack<Integer>();
+
+        updateFolderContentPopupMenu = getUpdateFolderContentDropdownMenu();
+
+        this.docRepo = docRepo;
+
+        folderContentsTableModel = new FolderContentTableModel(new ArrayList<FolderContent>() {}){
             public boolean isCellEditable(int rowIndex, int columnIndex) {
                 return false;
             }
@@ -63,7 +147,7 @@ public class FileExplorer extends JPanel {
 
     private JTable initTable()
     {
-        JTable table = new JTable(directoryContentsTableModel);
+        JTable table = new JTable(folderContentsTableModel);
         table.setFillsViewportHeight(true);
         table.setRowHeight(30);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -102,15 +186,37 @@ public class FileExplorer extends JPanel {
           public void mouseClicked(MouseEvent e) {
             int row = table.rowAtPoint(e.getPoint()); // Get the row that was clicked
             if (row >= 0) {
-                // If a directory was clicked, go into the directory, otherwise, open the file
                 String type = table.getValueAt(row, 3).toString();
-                String rowName = table.getValueAt(row, 0).toString();
-                System.out.println("Row with name: " + rowName + " was clicked");
-                if (type == "dir"){
-                    System.out.println("Going into directory!");
-                }
-                else{
-                    System.out.println("Opening file!");
+                if (e.getButton() == MouseEvent.BUTTON1) {
+                    // If the row was left-clicked, run this
+
+                    // If a directory was clicked, go into the directory, otherwise, open the file
+                    if (type.equals("dir")){
+                        // Go into directory and reset the redo history
+                        parentFolderIdRedoHistory.clear();
+                        parentFolderIdUndoHistory.push(folderContentsTableModel.getFolderContentIdForRow(row));
+                        currentParentFolderId = parentFolderIdUndoHistory.peek();
+                        updateModel(searchQuery);
+                    }
+                    else{
+                        // Open the document, aka create a new instance of DocumentEditor with this Document
+                        Document document = docRepo.getDocumentById(
+                            folderContentsTableModel.getFolderContentIdForRow(row), 
+                            MainFrame.window.currentUser.userId);
+
+                        if (document == null) {
+                            showErrDialog("The document couldn't be found in the database.");
+                        } else {
+                            MainFrame.window.addDocumentEditorTab(document);
+                        }
+                    }
+                } 
+                else if (e.getButton() == MouseEvent.BUTTON3) {
+                    // If the row was right-clicked, run this
+                    isDir = type.equals("dir");
+                    folderContentId = folderContentsTableModel.getFolderContentIdForRow(row);
+
+                    showUpdateFolderContentMenu(e);
                 }
             }
           } 
@@ -125,41 +231,70 @@ public class FileExplorer extends JPanel {
         menu.setLayout(new FlowLayout());
         menu.setBackground(new Color(200, 200, 200));
 
+        // Back button
         JButton backButton = createButtonWithImagePath("/images/backButton.png");
         backButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("Go up a directory");
+                if (!parentFolderIdUndoHistory.empty()) {
+                    parentFolderIdRedoHistory.push(parentFolderIdUndoHistory.pop());
+                    currentParentFolderId = parentFolderIdUndoHistory.empty() ? 0:parentFolderIdUndoHistory.peek();
+                    updateModel(searchQuery);
+                }
             }
         });
-        backButton.setToolTipText("Go up a directory");
+        backButton.setToolTipText("Go to previous directory.");
 
+        // Forward button
         JButton forwardButton = createButtonWithImagePath("/images/forwardButton.png");
         forwardButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("Go down a directory you have been through");
+                if (!parentFolderIdRedoHistory.empty()) {
+                    parentFolderIdUndoHistory.push(parentFolderIdRedoHistory.pop());
+                    currentParentFolderId = parentFolderIdUndoHistory.peek();
+                    updateModel(searchQuery);
+                }
             }
         });
         forwardButton.setToolTipText("Go down a directory you have been through");
 
-        JTextField currentPathField = new JTextField(){
+        // Current path field
+        currentPathField = new JTextField(){
             @Override
             public Insets getInsets() {
                 return new Insets(5, 10, 5, 10); // add padding
             }
         };
-        currentPathField.setMinimumSize(new Dimension(800, currentPathField.getPreferredSize().height));
-        currentPathField.setPreferredSize(new Dimension(800, currentPathField.getPreferredSize().height));
+        currentPathField.setMinimumSize(new Dimension(750, currentPathField.getPreferredSize().height));
+        currentPathField.setPreferredSize(new Dimension(750, currentPathField.getPreferredSize().height));
         currentPathField.setToolTipText("The path of the current directory");
         
+        // Search field
         JTextField searchField = createSearchTextField();
 
+        // Insert folder content dropdown menu
+        JPopupMenu insertFolderContentMenu = new JPopupMenu();
+        JMenuItem createFile = new JMenuItem("Create File");
+        createFile.addActionListener(e -> createNewFile());
+        JMenuItem createFolder = new JMenuItem("Create Folder");
+        createFolder.addActionListener(e -> createNewFolder());
+        insertFolderContentMenu.add(createFile);
+        insertFolderContentMenu.add(createFolder);
+
+        JButton dropdownButton = new JButton("▼");
+        dropdownButton.addActionListener(e -> insertFolderContentMenu.show(
+            dropdownButton, 
+            insertFolderContentMenu.getWidth() - dropdownButton.getWidth(), 
+            dropdownButton.getHeight()));
+
+        // Adding all components to menu JPanel
         menu.add(backButton);
         menu.add(forwardButton);
         menu.add(Box.createHorizontalStrut(15)); // Adds a space of 20 pixels
         menu.add(currentPathField);
         menu.add(searchField);
+        menu.add(dropdownButton);
 
         return menu;
     }
@@ -220,50 +355,155 @@ public class FileExplorer extends JPanel {
         return button;
     }
 
+    private JPopupMenu getUpdateFolderContentDropdownMenu()
+    {
+        JPopupMenu updateFolderContentMenu = new JPopupMenu();
+        JMenuItem renameFolderContent = new JMenuItem("Rename");
+        renameFolderContent.addActionListener(e -> renameFolderContent());
+        JMenuItem deleteFolderContent = new JMenuItem("Delete");
+        deleteFolderContent.addActionListener(e -> deleteFolderContent());
+        updateFolderContentMenu.add(renameFolderContent);
+        updateFolderContentMenu.add(deleteFolderContent);
+
+        return updateFolderContentMenu;
+    }
+
+    private void showUpdateFolderContentMenu(MouseEvent e)
+    {
+        updateFolderContentPopupMenu.show(e.getComponent(), e.getX(), e.getY());
+    }
+
     private void updateModel(String searchQuery)
     {
-        directoryContentsTableModel.setRowCount(0);
-        Object[][] data = getFilteredData(searchQuery);
-        for (Object[] row : data){
-            directoryContentsTableModel.addRow(row);
+        folderContentsTableModel.clear();
+        ArrayList<FolderContent> data = getFilteredData(searchQuery);
+        for (FolderContent row : data){
+            folderContentsTableModel.addRow(row);
         }
+        
+        if (currentPathField != null) currentPathField.setText(docRepo.getPathOfFolder(currentParentFolderId));
     }
 
-    private Object[][] getSampleData()
-    {        
-        Object[][] data = {
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"DirA", "1/1/2011", "1/1/2011", "dir", "10KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"DirA", "1/1/2011", "1/1/2011", "dir", "10KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"DirA", "1/1/2011", "1/1/2011", "dir", "10KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"DirA", "1/1/2011", "1/1/2011", "dir", "10KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-            {"DirA", "1/1/2011", "1/1/2011", "dir", "10KB"},
-            {"FileA", "1/1/2011", "1/1/2011", "txt", "2KB"},
-        };
-
-        return data;
-    }
-
-    private Object[][] getFilteredData(String searchQuery)
+    private ArrayList<FolderContent> getFilteredData(String searchQuery)
     {
-        ArrayList<Object[]> filteredData = new ArrayList<>();
+        ArrayList<FolderContent> filteredData = new ArrayList<FolderContent>();
 
-        Object[][] data = getSampleData();
+        ArrayList<FolderContent> data = docRepo.getFolderContentsForUser(currentParentFolderId, MainFrame.window.currentUser.userId);
 
-        for (Object[] row : data){
-            if (row[0].toString().contains(searchQuery)){
-                filteredData.add(row);
+        for (FolderContent fc : data){
+            if (fc.name.contains(searchQuery)){
+                filteredData.add(fc);
             }
         }
 
-        return filteredData.toArray(new Object[filteredData.size()][5]);
+        return filteredData;
+    }
+
+    private void showErrDialog(String msg)
+    {
+        JOptionPane.showMessageDialog(this, msg);
+    }
+
+    private void createNewFile()
+    {
+        boolean done = false;
+        while (!done){
+            String fileNameWithExtension = JOptionPane.showInputDialog(this, "Enter File Name (with extension)");
+
+            if (fileNameWithExtension == null || fileNameWithExtension == "") {
+                // Don't do anything if "Cancel" was clicked
+                done = true;
+                continue;
+            } 
+
+            if (!fileNameWithExtension.matches("([^\\.]*)\\.([^\\.]*)")) {
+                JOptionPane.showMessageDialog(this, "File name must have only one period");
+                continue;
+            }
+
+            String fileName = fileNameWithExtension.substring(0,fileNameWithExtension.indexOf("."));
+            String fileExtension = fileNameWithExtension.substring(fileNameWithExtension.indexOf(".") + 1);
+            Document document = new Document(
+                0, 
+                MainFrame.window.currentUser.userId, 
+                currentParentFolderId == 0 ? null:currentParentFolderId, 
+                MainFrame.window.currentUser.userId, 
+                0, 
+                Timestamp.from(Instant.now()), 
+                Timestamp.from(Instant.now()), 
+                fileExtension, 
+                fileName);
+            
+            done = docRepo.addDocument(document);
+            updateModel(searchQuery);
+            if (!done){
+                JOptionPane.showMessageDialog(this, "Something went wrong while attempting to add document. Check if the name has been taken.");
+            }
+        }
+    }
+
+    private void createNewFolder()
+    {
+        boolean done = false;
+        while (!done){
+            String folderName = JOptionPane.showInputDialog(this, "Enter Folder Name");
+
+            if (folderName == null || folderName == "") {
+                // Don't do anything if "Cancel" was clicked
+                done = true;
+                continue;
+            } 
+
+            Folder folder = new Folder(
+                0, 
+                MainFrame.window.currentUser.userId, 
+                currentParentFolderId == 0 ? null:currentParentFolderId, 
+                MainFrame.window.currentUser.userId, 
+                Timestamp.from(Instant.now()), 
+                Timestamp.from(Instant.now()), 
+                "dir", 
+                folderName);
+            
+            done = docRepo.addFolder(folder);
+            updateModel(searchQuery);
+            if (!done){
+                JOptionPane.showMessageDialog(this, "Something went wrong while attempting to add folder. Check if the name has been taken.");
+            }
+        }
+    }
+
+    private void renameFolderContent()
+    {
+        boolean done = false;
+        while (!done){
+            String folderContentName = JOptionPane.showInputDialog(this, "Enter New Name");
+
+            if (folderContentName == null || folderContentName == "") {
+                // Don't do anything if "Cancel" was clicked
+                done = true;
+                continue;
+            }
+            
+            done = isDir ? docRepo.updateFolderName(folderContentId, folderContentName):docRepo.updateDocumentName(folderContentId, folderContentName);
+            updateModel(searchQuery);
+            if (!done){
+                JOptionPane.showMessageDialog(this, "Something went wrong while attempting to rename folderContent. Check if the name has been taken.");
+            }
+        }
+    }
+
+    private void deleteFolderContent()
+    {
+        boolean success = false;
+        if (isDir) {
+            success = docRepo.deleteFolder(folderContentId);
+        } else {
+            success = docRepo.deleteDocument(folderContentId);
+        }
+        updateModel(searchQuery);
+
+        if (!success) {
+            JOptionPane.showMessageDialog(this, "An error occured while trying to delete this folder content.");
+        }
     }
 }

@@ -6,6 +6,7 @@ import java.sql.DriverManager;
 
 import javax.swing.*;
 
+import model.Document;
 import repository.DocumentRepository;
 import repository.TeamRepository;
 import repository.UserRepository;
@@ -65,7 +66,6 @@ public class MainFrame extends JFrame
             initComponents();
 
             tabbedPane.add("File Explorer", new FileExplorer(new DocumentRepository(connection)));
-            tabbedPane.add("Document Editor", new DocumentEditor(new DocumentRepository(connection)));
             tabbedPane.add("Team Explorer", new TeamExplorer(new TeamRepository(connection)));
 
             setContentPane(tabbedPane);
@@ -107,6 +107,11 @@ public class MainFrame extends JFrame
         }
 
         dialog.dispose();
+    }
+
+    public void addDocumentEditorTab(Document document)
+    {
+        
     }
 
     // GUI Components
