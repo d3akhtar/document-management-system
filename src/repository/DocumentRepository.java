@@ -1,12 +1,16 @@
 package repository;
 
 import java.io.Console;
+import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+
+import javax.swing.JOptionPane;
 
 import model.Comment;
 import model.Document;
@@ -85,7 +89,8 @@ public class DocumentRepository {
         String versionQuery =
         "SELECT version_id,v.file_id,owner_id,version_number,date_modified,content FROM doc_version v   \n" + //
         "JOIN permission p on p.file_id=v.file_id AND p.user_id=" + Integer.toString(userId) + " \n" + //
-        "WHERE v.file_id=" + Integer.toString(fileId);
+        "WHERE v.file_id=" + Integer.toString(fileId) + "\n" + // 
+        "ORDER BY version_number desc";
 
         try {
             PreparedStatement statement = connection.prepareStatement(versionQuery);
@@ -103,6 +108,20 @@ public class DocumentRepository {
             }
         } catch (Exception e) {
             System.err.println("An error occured while retrieving latest version for file with id: " + fileId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String getLatestFileVersionContent(int fileId, int userId)
+    {
+        Version latestVersion = getLatestFileVersion(fileId, userId);
+        if (latestVersion.content == null) return "";
+        try {
+            String content = new String(latestVersion.content.getBytes(1, (int) latestVersion.content.length()), StandardCharsets.UTF_8);
+            return content;
+        } catch (SQLException e) {
+            System.err.println("An error occured while retrieving latest content for file with id: " + fileId);
             e.printStackTrace();
             return null;
         }
@@ -126,7 +145,7 @@ public class DocumentRepository {
                 Timestamp dateModified = rs.getTimestamp("date_modified");
                 String fileType = rs.getString("file_type");
                 String fileName = rs.getString("file_name");
-                return new Document(fileSize, ownerId, parentFolderId, createdBy, fileSize, dateCreated, dateModified, fileType, fileName);
+                return new Document(documentId, ownerId, parentFolderId, createdBy, fileSize, dateCreated, dateModified, fileType, fileName);
             } else { 
                 return null;
             }
@@ -194,6 +213,23 @@ public class DocumentRepository {
         }
 
         return comments;
+    }
+
+    public int getLatestVersionNumberForDocument(int documentId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT max(version_number) FROM doc_version WHERE file_id=" + documentId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                return rs.getInt("max(version_number)");
+            } else {
+                return -1;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving comments for file with id: " + documentId);
+            e.printStackTrace();
+            return -1;
+        }
     }
 
     private boolean updateFileSize(int fileId, int newFileSize)
@@ -396,7 +432,7 @@ public class DocumentRepository {
                 if (!updateParentFolderPath(cfd.folderId, cfd.folderName)) { return false; }
             }
             return true;
-            
+
         } catch (Exception e) {
             System.err.println("An error occured while updating path of parent folder with id: " + parentFolderId);
             e.printStackTrace();
