@@ -37,8 +37,7 @@ public class DocumentEditor extends JPanel {
 
         add(textArea, BorderLayout.CENTER);
 
-        // Load content from latest version of this document into the textarea
-        textArea.setText(docRepo.getLatestFileVersionContent(document.fileId, MainFrame.window.currentUser.userId));
+        reloadFile();
     }
 
     private JMenuBar getDocumentEditorMenuBar()
@@ -95,7 +94,8 @@ public class DocumentEditor extends JPanel {
 
     private void reloadFile()
     {
-
+        // Run the same code again to load content from latest version of this document
+        textArea.setText(docRepo.getLatestFileVersionContent(document.fileId, MainFrame.window.currentUser.userId));
     }
 
     private void showComments()
