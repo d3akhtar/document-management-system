@@ -19,7 +19,9 @@ public class DocumentEditor extends JPanel {
         this.docRepo = docRepo;
 
         setLayout(new BorderLayout());
-        JLabel label = new JLabel("DocumentEditor", SwingConstants.CENTER);
+        JLabel label = new JLabel("DocumentEditor, name: " + document.fileName, SwingConstants.CENTER);
         add(label, BorderLayout.CENTER);
     }
+
+    public int getDocumentIdOfEditor() { return document.fileId; }
 }
