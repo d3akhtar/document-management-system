@@ -17,10 +17,12 @@ import com.mysql.cj.jdbc.Blob;
 import model.Comment;
 import model.Document;
 import model.FolderContent;
+import model.Permission;
 import model.Version;
 import model.Permission.Ability;
 import repository.DocumentRepository;
 import repository.UserRepository;
+import ui.MainFrame.User;
 
 public class DocumentEditor extends JPanel {
 
@@ -30,6 +32,7 @@ public class DocumentEditor extends JPanel {
 
     private int selectedCommentId;
     private int selectedCommentIdCreatedBy;
+    private int selectedPermissionId;
 
     public DocumentEditor(Document document, DocumentRepository docRepo, UserRepository userRepo)
     {
@@ -39,6 +42,7 @@ public class DocumentEditor extends JPanel {
 
         selectedCommentId = 0;
         selectedCommentIdCreatedBy = 0;
+        selectedPermissionId = 0;
 
         setLayout(new BorderLayout());
 
@@ -48,6 +52,9 @@ public class DocumentEditor extends JPanel {
         textArea.setLineWrap(true);
         textArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 15));
         textArea.setTabSize(4);
+
+        // Only allow edits if the user that is logged in has edit permission
+        textArea.setEditable(docRepo.getUserPermForDocument(document.fileId, MainFrame.window.currentUser.userId).getAbilityEnum() == Ability.EDIT);
 
         add(textArea, BorderLayout.CENTER);
 
@@ -74,7 +81,7 @@ public class DocumentEditor extends JPanel {
         JMenuItem comments = new JMenuItem("Comments");
         comments.addActionListener(e -> toggleCommentVisibility());
         JMenuItem permissions = new JMenuItem("Permissions");
-        permissions.addActionListener(e -> managePermissions());
+        permissions.addActionListener(e -> togglePermissionVisibility());
         teamMenu.add(comments);
         teamMenu.add(permissions);
 
@@ -95,6 +102,12 @@ public class DocumentEditor extends JPanel {
 
     private void saveFile()
     {
+        // Only allow ability to save file to users with edit permission
+        if (docRepo.getUserPermForDocument(document.fileId, MainFrame.window.currentUser.userId).getAbilityEnum() != Ability.EDIT){
+            JOptionPane.showMessageDialog(this, "Cannot save file if you don't have edit permission.");
+            return;
+        }
+
         Version newFileVersion = new Version(
             0, 
             document.fileId, 
@@ -120,14 +133,20 @@ public class DocumentEditor extends JPanel {
         commentPanel.setVisible(!commentPanel.isVisible());
     }
 
+    private void togglePermissionVisibility()
+    {
+        if (!permissionPanel.isVisible()) { loadPermissionList(); }
+        permissionPanel.setVisible(!permissionPanel.isVisible());
+    }
+
     private void showCommentUpdateMenu(MouseEvent e)
     {
         commentUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
-    private void managePermissions()
+    private void showPermissionUpdateMenu(MouseEvent e)
     {
-
+        permissionUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
     private void manageVersions()
@@ -203,6 +222,122 @@ public class DocumentEditor extends JPanel {
         toggleCommentVisibility();
     }
 
+    private void addPermission()
+    {
+        if (document.ownerId != MainFrame.window.currentUser.userId){
+            JOptionPane.showMessageDialog(this, "Cannot add permissions if you aren't the document owner.");
+            return;
+        }
+
+        JPanel permissionInputDialogPanel = new JPanel();
+        permissionInputDialogPanel.setLayout(new BoxLayout(permissionInputDialogPanel, BoxLayout.Y_AXIS));
+
+        // Specify who the permission is for
+        JTextField permissionUserEmailField = new JTextField();
+        permissionInputDialogPanel.add(new JLabel("Enter user email: "));
+        permissionInputDialogPanel.add(permissionUserEmailField);
+
+        // Specify the ability
+        JComboBox<String> permissionAbilityOptions = new JComboBox<>(new String[] {"View", "Comment", "Edit"});
+        permissionInputDialogPanel.add(new JLabel("Select ability:"));
+        permissionInputDialogPanel.add(permissionAbilityOptions);
+
+        int result = JOptionPane.showConfirmDialog(
+            this, permissionInputDialogPanel, "Add Permission", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION){
+            String email = permissionUserEmailField.getText();
+            int abilities = permissionAbilityOptions.getSelectedIndex() + 1;
+
+            User user = userRepo.getUserWithEmail(email);
+
+            if (user == null) {
+                JOptionPane.showMessageDialog(this, "Couldn't find a user with this email.");
+                return;
+            }
+
+            if (docRepo.getUserPermForDocument(document.fileId, user.userId) != null) {
+                JOptionPane.showMessageDialog(this, "User already has a permission on this document.");
+                return;
+            }
+
+            if (!docRepo.addUserPermForItem(new Permission(0, document.fileId, null, user.userId, null, abilities))){
+                JOptionPane.showMessageDialog(this, "Something went wrong when adding permission.");
+            }
+
+            // Hide, reload, then show the permission to make it look as if the box was updated in real-time
+            togglePermissionVisibility();
+            loadPermissionList();
+            togglePermissionVisibility();
+        }
+    }
+
+    private void editPermission()
+    {
+        if (document.ownerId != MainFrame.window.currentUser.userId){
+            JOptionPane.showMessageDialog(this, "Cannot edit permissions if you aren't the document owner.");
+            return;
+        }
+
+        Permission permission = docRepo.getPermissionById(selectedPermissionId);
+
+        JPanel permissionInputDialogPanel = new JPanel();
+        permissionInputDialogPanel.setLayout(new BoxLayout(permissionInputDialogPanel, BoxLayout.Y_AXIS));
+
+        // Don't need to specify who the permission is for, but still show the email associated with the permission
+        JTextField permissionUserEmailField = new JTextField();
+        permissionInputDialogPanel.add(new JLabel("Enter user email: "));
+        permissionInputDialogPanel.add(permissionUserEmailField);
+        permissionUserEmailField.setText(userRepo.getUserEmailById(permission.userId));
+        permissionUserEmailField.setEditable(false);
+
+        // Specify the ability
+        JComboBox<String> permissionAbilityOptions = new JComboBox<>(new String[] {"View", "Comment", "Edit"});
+        permissionInputDialogPanel.add(new JLabel("Select ability:"));
+        permissionInputDialogPanel.add(permissionAbilityOptions);
+        permissionAbilityOptions.setSelectedIndex(permission.abilities - 1);
+
+        int result = JOptionPane.showConfirmDialog(
+            this, permissionInputDialogPanel, "Update Permission", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION){
+            int abilities = permissionAbilityOptions.getSelectedIndex() + 1;
+
+            if (!docRepo.updateUserPermForDocument(new Permission(permission.permissionId, permission.fileId, permission.folderId, permission.userId, permission.teamId, abilities))){
+                JOptionPane.showMessageDialog(this, "Something went wrong when updating permission.");
+            }
+
+            // Hide, reload, then show the permission to make it look as if the box was updated in real-time
+            togglePermissionVisibility();
+            loadPermissionList();
+            togglePermissionVisibility();
+        }
+    }
+
+    private void deletePermission()
+    {
+        if (document.ownerId != MainFrame.window.currentUser.userId){
+            JOptionPane.showMessageDialog(this, "Cannot delete permissions if you aren't the document owner.");
+            return;
+        }
+
+        if (docRepo.getPermissionById(selectedPermissionId).userId == document.ownerId) {
+            JOptionPane.showMessageDialog(this, "Cannot delete the permission that refers to the owner.");
+            return;
+        }
+
+        if (!docRepo.removeUserPermForDocument(selectedPermissionId)){
+            JOptionPane.showMessageDialog(this, "Something went wrong when deleting permission.");
+        }
+
+        // Hide, reload, then show the permission to make it look as if the box was updated in real-time
+        togglePermissionVisibility();
+        loadPermissionList();
+        togglePermissionVisibility();
+    }
+
     private void loadCommentList()
     {
         commentListPanel.removeAll();
@@ -244,6 +379,49 @@ public class DocumentEditor extends JPanel {
         commentListPanel.repaint();
     }
 
+    private void loadPermissionList()
+    {
+        permissionListPanel.removeAll();
+
+        ArrayList<Permission> permissions = docRepo.getDocumentPermissions(document.fileId);
+
+        for (Permission permission : permissions) {
+            String permissionDisplay =
+            "Username: " + userRepo.getUsernameById(permission.userId) + "\n" +
+            "Ability: " + permission.getAbilityString(); 
+
+            JTextArea permissionTextArea = new JTextArea(permissionDisplay);
+            permissionTextArea.setLineWrap(true);
+            permissionTextArea.setColumns(10);
+            permissionTextArea.setRows(1);
+            permissionTextArea.setEditable(false);
+            permissionTextArea.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
+
+            // We need the id to reference when editing or deleting permission
+            permissionTextArea.putClientProperty("permissionId", permission.permissionId);
+            // We also need to add a reference to the user id of the person who created the permission
+
+            permissionTextArea.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    selectedPermissionId = (int) permissionTextArea.getClientProperty("permissionId");
+                    if (e.getButton() == MouseEvent.BUTTON3) {
+                        // If right-clicked, show a popup menu with the options to edit or delete a permission
+                        showPermissionUpdateMenu(e);
+                    }
+                }
+            });
+
+            permissionListPanel.add(permissionTextArea);
+        }
+
+        // Add a vertical filler to consume extra space if needed
+        permissionListPanel.add(Box.createVerticalGlue());
+
+        permissionListPanel.revalidate();
+        permissionListPanel.repaint();
+    }
+
     private void initComponents()
     {
         // Create JPanel to show list of comments
@@ -254,14 +432,14 @@ public class DocumentEditor extends JPanel {
         commentScrollPane = new JScrollPane(commentListPanel);
         commentScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
-        JPanel inputPanel = new JPanel(new BorderLayout());
+        JPanel commentInputPanel = new JPanel(new BorderLayout());
         JButton addCommentButton = new JButton("Add Comment");
         addCommentButton.setBorder(BorderFactory.createLineBorder(Color.black));
         addCommentButton.addActionListener(e -> addComment());
-        inputPanel.add(addCommentButton, BorderLayout.SOUTH);
+        commentInputPanel.add(addCommentButton, BorderLayout.SOUTH);
 
         commentPanel.add(commentScrollPane, BorderLayout.CENTER);
-        commentPanel.add(inputPanel, BorderLayout.SOUTH);
+        commentPanel.add(commentInputPanel, BorderLayout.SOUTH);
 
         loadCommentList();
 
@@ -276,12 +454,49 @@ public class DocumentEditor extends JPanel {
         deleteComment.addActionListener(e -> deleteComment());
         commentUpdateMenu.add(editComment);
         commentUpdateMenu.add(deleteComment);
+
+        // Create JPanel to show list of permissions
+        permissionPanel = new JPanel(new BorderLayout());
+        permissionListPanel = new JPanel();
+        permissionListPanel.setLayout(new BoxLayout(permissionListPanel, BoxLayout.Y_AXIS));
+
+        permissionScrollPane = new JScrollPane(permissionListPanel);
+        permissionScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+
+        JPanel permissionInputPanel = new JPanel(new BorderLayout());
+        JButton addPermissionButton = new JButton("Add Permission");
+        addPermissionButton.setBorder(BorderFactory.createLineBorder(Color.black));
+        addPermissionButton.addActionListener(e -> addPermission());
+        permissionInputPanel.add(addPermissionButton, BorderLayout.SOUTH);
+
+        permissionPanel.add(permissionScrollPane, BorderLayout.CENTER);
+        permissionPanel.add(permissionInputPanel, BorderLayout.SOUTH);
+
+        loadPermissionList();
+
+        add(permissionPanel, BorderLayout.EAST);
+        togglePermissionVisibility();
+
+        // Create comment update popup menu
+        permissionUpdateMenu = new JPopupMenu();
+        JMenuItem editPermission = new JMenuItem("Edit");
+        editPermission.addActionListener(e -> editPermission());
+        JMenuItem deletePermission = new JMenuItem("Delete");
+        deletePermission.addActionListener(e -> deletePermission());
+        permissionUpdateMenu.add(editPermission);
+        permissionUpdateMenu.add(deletePermission);
     }
 
     // GUI Components
     JTextArea textArea;
+
     JPanel commentPanel;
     JPanel commentListPanel;
     JScrollPane commentScrollPane;
     JPopupMenu commentUpdateMenu;
+
+    JPanel permissionPanel;
+    JPanel permissionListPanel;
+    JScrollPane permissionScrollPane;
+    JPopupMenu permissionUpdateMenu;
 }

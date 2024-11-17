@@ -156,6 +156,26 @@ public class DocumentRepository {
         }
     }
 
+    public ArrayList<Permission> getDocumentPermissions(int documentId)
+    {
+        ArrayList<Permission> permissions = new ArrayList<Permission>();
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM permission WHERE file_id=" + documentId);
+            ResultSet rs = statement.executeQuery();
+            while (rs.next()){
+                int permissionid = rs.getInt("permission_id");
+                Integer userId = rs.getInt("user_id");
+                Integer teamId = rs.getInt("team_id");
+                int abilities = rs.getInt("abilities");
+                permissions.add(new Permission(permissionid, documentId, null, userId, teamId, abilities));
+            } 
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving permissions for document with id: " + documentId);
+            e.printStackTrace();
+        }
+        return permissions;
+    }
+
     public String getPathOfFolder(int parentFolderId)
     {
         if (parentFolderId == 0) return "";
@@ -263,6 +283,29 @@ public class DocumentRepository {
             }
         } catch (Exception e) {
             System.err.println("An error occured while retrieving user permission for document with id: " + documentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Permission getPermissionById(int permissionId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM permission WHERE permission_id=" + permissionId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                int permissionid = rs.getInt("permission_id");
+                Integer documentId = rs.getInt("file_id");
+                Integer folderId = rs.getInt("folder_id");
+                Integer userId = rs.getInt("user_id");
+                Integer teamId = rs.getInt("team_id");
+                int abilities = rs.getInt("abilities");
+                return new Permission(permissionid, documentId, folderId, userId, teamId, abilities);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving user permission with id: " + permissionId);
             e.printStackTrace();
             return null;
         }

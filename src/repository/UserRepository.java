@@ -90,4 +90,41 @@ public class UserRepository {
             return null;
         }
     }
+
+    public String getUserEmailById(int userId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT email FROM doc_user WHERE user_id=" + userId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                return rs.getString("email");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while trying to get email of user with id: " + userId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public User getUserWithEmail(String email)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT user_id,username,email FROM doc_user WHERE email=?");
+            statement.setString(1, email);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                int userId = rs.getInt("user_id");
+                String username = rs.getString("username");
+                return new User(userId, username, email);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while trying to get find user with email: " + email);
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

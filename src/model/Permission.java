@@ -34,4 +34,14 @@ public class Permission {
             default: throw new IllegalArgumentException("No valid enum for abilities value: " + abilities);
         }
     }
+
+    public String getAbilityString()
+    {
+        switch (getAbilityEnum()){
+            case VIEW: return "View";
+            case COMMENT: return "Comment";
+            case EDIT: return "Edit";
+            default: throw new IllegalArgumentException("Invalid enum: " + getAbilityEnum());
+        }
+    }
 }
