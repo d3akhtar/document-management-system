@@ -73,4 +73,21 @@ public class UserRepository {
             return false;
         }
     }
+
+    public String getUsernameById(int userId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT username FROM doc_user WHERE user_id=" + userId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                return rs.getString("username");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while trying to get username of user with id: " + userId);
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

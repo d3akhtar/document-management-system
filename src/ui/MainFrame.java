@@ -134,7 +134,7 @@ public class MainFrame extends JFrame
         }
         
 
-        JPanel tabContent = new DocumentEditor(document, new DocumentRepository(connection));
+        JPanel tabContent = new DocumentEditor(document, new DocumentRepository(connection), new UserRepository(connection));
         tabbedPane.addTab(document.fileName, tabContent);
 
         // Add a tab with a close button

@@ -232,6 +232,42 @@ public class DocumentRepository {
         }
     }
 
+    public String getCommentContentById(int commentId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT content FROM doc_comment WHERE comment_id=" + commentId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                return rs.getString("content");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving comment content for comment with id: " + commentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Permission getUserPermForDocument(int documentId, int userId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM permission WHERE file_id=" + documentId + " AND user_id=" + userId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                int permissionid = rs.getInt("permission_id");
+                int abilities = rs.getInt("abilities");
+                return new Permission(permissionid, documentId, null, userId, null, abilities);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving user permission for document with id: " + documentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private boolean updateFileSize(int fileId, int newFileSize)
     {
         try {
@@ -270,14 +306,14 @@ public class DocumentRepository {
         }
     }
 
-    public boolean insertDocumentComment(Comment comment)
+    public boolean addDocumentComment(Comment comment)
     {
         try {
             PreparedStatement statement = connection.prepareStatement("SELECT max(comment_id) FROM doc_comment");
             ResultSet rs = statement.executeQuery();
             if (rs.next()){
                 int nextId = rs.getInt("max(comment_id)") + 1;
-                statement = connection.prepareStatement("INSERT INTO doc_comment VALUES (?,?,?,?)");
+                statement = connection.prepareStatement("INSERT INTO doc_comment VALUES (?,?,?,?,?)");
                 statement.setInt(1, nextId);
                 statement.setInt(2, comment.fileId);
                 statement.setInt(3, comment.createdBy);
@@ -289,6 +325,19 @@ public class DocumentRepository {
             }
         } catch (Exception e) {
             System.err.println("An error occured while adding a comment to document with id: " + comment.fileId);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean updateCommentContent(int commentId, String newContent)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("UPDATE doc_comment SET content=? WHERE comment_id=" + commentId);
+            statement.setString(1, newContent);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("An error occured while updating comment content with id: " + commentId);
             e.printStackTrace();
             return false;
         }

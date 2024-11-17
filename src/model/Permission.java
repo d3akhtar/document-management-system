@@ -9,7 +9,7 @@ public class Permission {
     public Integer teamId;
     public int abilities;
 
-    enum Ability 
+    public enum Ability 
     {
         VIEW,
         COMMENT,
