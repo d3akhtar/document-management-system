@@ -33,6 +33,8 @@ public class DocumentEditor extends JPanel {
     private int selectedCommentId;
     private int selectedCommentIdCreatedBy;
     private int selectedPermissionId;
+    private int selectedVersionId;
+    private int selectedVersionNumber;
 
     public DocumentEditor(Document document, DocumentRepository docRepo, UserRepository userRepo)
     {
@@ -43,6 +45,8 @@ public class DocumentEditor extends JPanel {
         selectedCommentId = 0;
         selectedCommentIdCreatedBy = 0;
         selectedPermissionId = 0;
+        selectedVersionId = 0;
+        selectedVersionNumber = 0;
 
         setLayout(new BorderLayout());
 
@@ -149,9 +153,47 @@ public class DocumentEditor extends JPanel {
         permissionUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
+    private void showVersionUpdateMenu(MouseEvent e)
+    {
+        versionUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
+    }
+
     private void manageVersions()
     {
-        
+        loadVersionList();
+
+        versionDialogPanel = new JPanel();
+        versionDialogPanel.setLayout(new BoxLayout(versionDialogPanel, BoxLayout.Y_AXIS));
+        versionDialogPanel.setMinimumSize(new Dimension(854, 480));
+        versionDialogPanel.setPreferredSize(new Dimension(854, 480));
+
+        JScrollPane scrollPane = new JScrollPane(versionListPanel);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        versionDialogPanel.add(scrollPane);
+        versionDialogPanel.add(versionContentTextArea);
+
+        int result = JOptionPane.showConfirmDialog(
+            this, versionDialogPanel, "Select Version", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION){
+            String versionContent = docRepo.getVersionContentById(selectedVersionId);
+            
+            Version newFileVersion = new Version(
+            0, 
+            document.fileId, 
+            MainFrame.window.currentUser.userId, 
+            docRepo.getLatestVersionNumberForDocument(document.fileId) + 1, 
+            Timestamp.from(Instant.now()),
+            new Blob(versionContent.getBytes(),null));
+
+            if (!docRepo.addFileVersion(newFileVersion, versionContent.length())){
+                JOptionPane.showMessageDialog(this, "Something went wrong went switching to previous document version.");
+            } else {
+                textArea.setText(versionContent); // Onlyupdate text in editor on success
+            }
+        }
     }
 
     private void addComment()
@@ -422,6 +464,63 @@ public class DocumentEditor extends JPanel {
         permissionListPanel.repaint();
     }
 
+    private void loadVersionList()
+    {
+        versionListPanel.removeAll();
+
+        for (Version v : docRepo.getAllVersionsForDocument(document.fileId)){
+            JPanel versionLabelPanel = new JPanel(new BorderLayout());
+            JLabel versionLabel = new JLabel(v.dateModified.toString());
+            
+            versionLabel.setHorizontalTextPosition(SwingConstants.CENTER);
+            versionLabel.setFont(new Font("Serif", Font.PLAIN, 20));
+            versionLabel.setFocusable(true);
+
+            versionLabelPanel.setBorder(BorderFactory.createBevelBorder(BevelBorder.LOWERED));
+            versionLabelPanel.add(versionLabel, BorderLayout.CENTER);
+            versionLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+            versionLabelPanel.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    // Save versionId for reference if user wants to delete the version
+                    selectedVersionId = v.versionId;
+                    selectedVersionNumber = v.versionNumber;
+                    if (e.getButton() == MouseEvent.BUTTON1) {
+                        versionContentTextArea.setText(docRepo.getVersionContentById(v.versionId));
+                    }
+                    else if (e.getButton() == MouseEvent.BUTTON3){
+                        // If right clicked, show popup menu with option to delete version
+                        showVersionUpdateMenu(e);
+                    }
+                }
+            });
+            
+            versionListPanel.add(versionLabelPanel);
+        }
+    }
+
+    private void deleteVersion()
+    {
+        if (document.ownerId != MainFrame.window.currentUser.userId){
+            JOptionPane.showMessageDialog(this, "Cannot delete versions if you aren't the document owner.");
+            return;
+        }
+
+        if (selectedVersionNumber == docRepo.getLatestVersionNumberForDocument(document.fileId)){
+            JOptionPane.showMessageDialog(this, "Cannot delete the latest version of a document.");
+            return;
+        }
+
+        if (!docRepo.deleteDocumentVersion(selectedVersionId)){
+            JOptionPane.showMessageDialog(this, "Something went wrong while attempting to delete version.");
+        }
+
+        loadVersionList();
+        versionDialogPanel.revalidate();
+        versionDialogPanel.repaint();
+    }
+
     private void initComponents()
     {
         // Create JPanel to show list of comments
@@ -485,6 +584,22 @@ public class DocumentEditor extends JPanel {
         deletePermission.addActionListener(e -> deletePermission());
         permissionUpdateMenu.add(editPermission);
         permissionUpdateMenu.add(deletePermission);
+
+        // Create popup menu to update versions (there is only a delete option for now)
+        versionUpdateMenu = new JPopupMenu();
+        JMenuItem deleteVersion = new JMenuItem("Delete");
+        deleteVersion.addActionListener(e -> deleteVersion());
+        versionUpdateMenu.add(deleteVersion);
+
+        // Prepare version list panel for loading
+        versionListPanel = new JPanel();
+        versionListPanel.setLayout(new BoxLayout(versionListPanel, BoxLayout.Y_AXIS));
+
+        // Create version content text area so versionListPanel can refer to it
+        versionContentTextArea = new JTextArea();
+        versionContentTextArea.setLineWrap(true);
+        versionContentTextArea.setEditable(false);
+        versionContentTextArea.setFocusable(false);
     }
 
     // GUI Components
@@ -499,4 +614,9 @@ public class DocumentEditor extends JPanel {
     JPanel permissionListPanel;
     JScrollPane permissionScrollPane;
     JPopupMenu permissionUpdateMenu;
+
+    JPopupMenu versionUpdateMenu;
+    JPanel versionListPanel;
+    JTextArea versionContentTextArea;
+    JPanel versionDialogPanel;
 }

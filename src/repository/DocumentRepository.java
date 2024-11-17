@@ -311,6 +311,46 @@ public class DocumentRepository {
         }
     }
 
+    public ArrayList<Version> getAllVersionsForDocument(int documentId)
+    {
+        ArrayList<Version> versions = new ArrayList<Version>();
+        try{
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM doc_version WHERE file_id=" + documentId + " ORDER BY date_modified desc");
+            ResultSet rs = statement.executeQuery();
+            while (rs.next()){
+                int versionId = rs.getInt("version_id");
+                int ownerId = rs.getInt("owner_id");
+                int versionNumber = rs.getInt("version_number");
+                Timestamp dateModified = rs.getTimestamp("date_modified");
+                Blob content = rs.getBlob("content");
+                versions.add(new Version(versionId, documentId, ownerId, versionNumber, dateModified, content));
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while getting document versions with document id: " + documentId);
+            e.printStackTrace();
+        }
+        return versions;
+    }
+
+    public String getVersionContentById(int versionId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT content FROM doc_version WHERE version_id=" + versionId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                Blob content = rs.getBlob("content");
+                if (content == null) return null;
+                else return new String(content.getBytes(1, (int) content.length()), StandardCharsets.UTF_8);
+            } else {
+                return null;
+            }
+        } catch (SQLException e) {
+            System.err.println("An error occured while retrieving content for version with id: " + versionId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private boolean updateFileSize(int fileId, int newFileSize)
     {
         try {
@@ -611,6 +651,18 @@ public class DocumentRepository {
             return statement.executeUpdate() > 0;
         } catch (Exception e) {
             System.err.println("An error occured while removing permission with id: " + permissionId);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean deleteDocumentVersion(int versionId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM doc_version WHERE version_id=" + versionId);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("An error occured while removing version with id: " + versionId);
             e.printStackTrace();
             return false;
         }
