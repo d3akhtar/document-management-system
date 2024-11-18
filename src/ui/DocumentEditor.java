@@ -576,7 +576,7 @@ public class DocumentEditor extends JPanel {
         add(permissionPanel, BorderLayout.EAST);
         togglePermissionVisibility();
 
-        // Create comment update popup menu
+        // Create permission update popup menu
         permissionUpdateMenu = new JPopupMenu();
         JMenuItem editPermission = new JMenuItem("Edit");
         editPermission.addActionListener(e -> editPermission());

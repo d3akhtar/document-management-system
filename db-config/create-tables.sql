@@ -64,8 +64,8 @@ CREATE TABLE user_team (
     team_id                                 INTEGER,
     user_id                                 INTEGER,
     CONSTRAINT user_team_id_pk              PRIMARY KEY ( user_team_id ),
-    CONSTRAINT user_team_fk_team            FOREIGN KEY ( team_id ) REFERENCES team ( team_id ),
-    CONSTRAINT user_team_fk_user            FOREIGN KEY ( user_id ) REFERENCES doc_user ( user_id )
+    CONSTRAINT user_team_fk_team            FOREIGN KEY ( team_id ) REFERENCES team ( team_id ) ON DELETE CASCADE,
+    CONSTRAINT user_team_fk_user            FOREIGN KEY ( user_id ) REFERENCES doc_user ( user_id ) ON DELETE CASCADE
 );
 
 CREATE TABLE shortcut (

@@ -165,7 +165,7 @@ public class FileExplorer extends JPanel {
                 
                 // Striped rows
                 if (row % 2 == 0){
-                    component.setBackground(Color.WHITE);
+                    component.setBackground(new Color(250,250,250));
                 }
                 else{
                     component.setBackground(new Color(240, 240, 240));
@@ -285,7 +285,7 @@ public class FileExplorer extends JPanel {
         JButton dropdownButton = new JButton("▼");
         dropdownButton.addActionListener(e -> insertFolderContentMenu.show(
             dropdownButton, 
-            insertFolderContentMenu.getWidth() - dropdownButton.getWidth(), 
+            0, 
             dropdownButton.getHeight()));
 
         // Adding all components to menu JPanel

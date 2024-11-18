@@ -78,7 +78,7 @@ public class MainFrame extends JFrame
             initComponents();
 
             tabbedPane.add("File Explorer", new FileExplorer(new DocumentRepository(connection)));
-            tabbedPane.add("Team Explorer", new TeamExplorer(new TeamRepository(connection)));
+            tabbedPane.add("Team Explorer", new TeamExplorer(new TeamRepository(connection), new UserRepository(connection)));
 
             setContentPane(tabbedPane);
         }
