@@ -211,6 +211,23 @@ public class DocumentRepository {
         }
     }
 
+    public Integer getParentFolderIdOfDocument(int documentId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM document WHERE file_id=" + documentId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("parent_folder_id");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving parentFolderId of document with id: " + documentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public ArrayList<Comment> getFileComments(int fileId)
     {
         ArrayList<Comment> comments = new ArrayList<Comment>();
@@ -283,6 +300,25 @@ public class DocumentRepository {
             }
         } catch (Exception e) {
             System.err.println("An error occured while retrieving user permission for document with id: " + documentId);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Permission getUserPermForFolder(int folderId, int userId)
+    {
+        try {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM permission WHERE folder_id=" + folderId + " AND user_id=" + userId);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()){
+                int permissionid = rs.getInt("permission_id");
+                int abilities = rs.getInt("abilities");
+                return new Permission(permissionid, null, folderId, userId, null, abilities);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("An error occured while retrieving user permission for folder with id: " + folderId);
             e.printStackTrace();
             return null;
         }
@@ -608,6 +644,15 @@ public class DocumentRepository {
 
     public boolean addUserPermForItem(Permission permission)
     {
+        // Avoid adding permissions if there is on parent folder or if they already exist
+        if (permission.folderId != null) {
+            if (permission.folderId == 0) return true;
+            if (getUserPermForFolder(permission.folderId, permission.userId) != null) return true;
+        }
+        if (permission.fileId != null){
+            if (getUserPermForDocument(permission.fileId, permission.userId) != null) return true;
+        }
+
         try {
             PreparedStatement statement = connection.prepareStatement("SELECT max(permission_id) FROM permission");
             ResultSet rs = statement.executeQuery();
@@ -620,7 +665,12 @@ public class DocumentRepository {
                 statement.setObject(4, permission.userId);
                 statement.setObject(5, permission.teamId);
                 statement.setInt(6, permission.abilities);
-                return statement.executeUpdate() > 0;
+                return statement.executeUpdate() > 0 &&
+                // Add perms for parent folders
+                permission.fileId == null ?
+                addUserPermForItem(new Permission(0,null,getParentFolderIdOfFolder(permission.folderId),permission.userId,permission.teamId,permission.abilities)):
+                addUserPermForItem(new Permission(0,null,getParentFolderIdOfDocument(permission.fileId),permission.userId,permission.teamId,permission.abilities));
+
             } else {
                 return false;
             }

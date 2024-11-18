@@ -106,8 +106,8 @@ public class MainFrame extends JFrame
         try{
             // Attempt connection
             String url = "jdbc:mysql://localhost:3306/documents";
-            String userame = "root";
-            String password = "";
+            String userame = "documentDb";
+            String password = "cps510DocumentManagementSystem";
             connection = DriverManager.getConnection(url, userame, password);
 
             messageLabel.setText("Connected successfully!");
