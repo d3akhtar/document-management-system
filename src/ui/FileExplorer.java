@@ -28,6 +28,7 @@ import repository.DocumentRepository;
 
 public class FileExplorer extends JPanel {
 
+    // Explicitly define a table model for folder contents 
     class FolderContentTableModel extends AbstractTableModel
     {
         private String[] columnNames = {"Name", "Date Created", "Date Modified", "Type", "Size (kb)"};
@@ -85,7 +86,12 @@ public class FileExplorer extends JPanel {
     private FolderContentTableModel folderContentsTableModel;
 
     private DocumentRepository docRepo;
-
+    
+    /*
+     * Keep track of the current parent folder id, which is what we will update tables based off of.
+     * One thing to note is that when the value for this variable is 0, it will retrive all the files
+     * and folders who have parent_folder_id=NULL rather than 0.
+     */
     private int currentParentFolderId;
     
     // For undoing and redoing
@@ -122,6 +128,7 @@ public class FileExplorer extends JPanel {
         };
 
         searchQuery = "";
+        // Load the initial table content
         updateModel(searchQuery);
 
         JTable directoryContentsTable = initTable();
@@ -145,6 +152,7 @@ public class FileExplorer extends JPanel {
         add(new JScrollPane(directoryContentsTable), gbc);
     }
 
+    // Create the JTable instance that will use our explicitly defined table model
     private JTable initTable()
     {
         JTable table = new JTable(folderContentsTableModel);
@@ -373,6 +381,7 @@ public class FileExplorer extends JPanel {
         updateFolderContentPopupMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
+    // Where the table is updated
     private void updateModel(String searchQuery)
     {
         folderContentsTableModel.clear();
@@ -381,9 +390,11 @@ public class FileExplorer extends JPanel {
             folderContentsTableModel.addRow(row);
         }
         
+        // Update the text in the field that shows the current path
         if (currentPathField != null) currentPathField.setText(docRepo.getPathOfFolder(currentParentFolderId));
     }
 
+    // Filter data by name based on a search query, which the user can input in the search text field in the menu
     private ArrayList<FolderContent> getFilteredData(String searchQuery)
     {
         ArrayList<FolderContent> filteredData = new ArrayList<FolderContent>();
@@ -404,9 +415,11 @@ public class FileExplorer extends JPanel {
         JOptionPane.showMessageDialog(this, msg);
     }
 
+    // Show a dialog where a user can enter a new file name
     private void createNewFile()
     {
         boolean done = false;
+        // Keep showing the dialog in case user enters invalid input
         while (!done){
             String fileNameWithExtension = JOptionPane.showInputDialog(this, "Enter File Name (with extension)");
 
@@ -415,7 +428,8 @@ public class FileExplorer extends JPanel {
                 done = true;
                 continue;
             } 
-
+            
+            // File names need to be of the format: *.*
             if (!fileNameWithExtension.matches("([^\\.]*)\\.([^\\.]*)")) {
                 JOptionPane.showMessageDialog(this, "File name must have only one period");
                 continue;
@@ -436,12 +450,15 @@ public class FileExplorer extends JPanel {
             
             done = docRepo.addDocument(document);
             updateModel(searchQuery);
+
+            // If there was error, tell the user, and give them a possible reason for the error
             if (!done){
                 JOptionPane.showMessageDialog(this, "Something went wrong while attempting to add document. Check if the name has been taken.");
             }
         }
     }
 
+    // Show a dialog where a user can enter a new folder name
     private void createNewFolder()
     {
         boolean done = false;
@@ -466,6 +483,8 @@ public class FileExplorer extends JPanel {
             
             done = docRepo.addFolder(folder);
             updateModel(searchQuery);
+
+            // If there was error, tell the user, and give them a possible reason for the error
             if (!done){
                 JOptionPane.showMessageDialog(this, "Something went wrong while attempting to add folder. Check if the name has been taken.");
             }

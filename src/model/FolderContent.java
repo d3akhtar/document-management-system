@@ -1,5 +1,6 @@
 package model;
 
+// Folders can either have files or folders, so this class is made so that it can refer to either a file or a folder
 public class FolderContent {
     public int id;
     public String name;

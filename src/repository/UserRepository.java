@@ -9,6 +9,10 @@ import model.Comment;
 import ui.MainFrame;
 import ui.MainFrame.User;
 
+
+// Normally, with users, we would hash the password, then check with the database, but for now, we are directly checking
+
+
 public class UserRepository {
     private Connection connection;
 
@@ -16,10 +20,9 @@ public class UserRepository {
         this.connection = connection;
     }
 
-    // Normally, we would hash the password, then check with the database, but for now, we are directly checking
+    // Try to find a user with given details, if found, set current user in MainFrame
     public boolean login(String email, String password)
     {
-        // Try to find a user with given details, if found, set current user in MainFrame, otherwise return
         String loginQuery = 
         "SELECT user_id,username,email from doc_user\r\n" + //
         "WHERE email=?\r\n" + //
@@ -108,6 +111,7 @@ public class UserRepository {
         }
     }
 
+    // Mainly for searching for users to add to teams or permissions
     public User getUserWithEmail(String email)
     {
         try {

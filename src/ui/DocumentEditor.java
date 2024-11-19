@@ -26,10 +26,13 @@ import ui.MainFrame.User;
 
 public class DocumentEditor extends JPanel {
 
+    // We need both document and user related info, since we will also be dealing with giving permissions to user on the document assigned to this instance of DocumentEditor
     private DocumentRepository docRepo;
     private UserRepository userRepo;
+    
     private Document document;
 
+    // Have global variables for selected ids to refer to when adding, deleting, updating, etc...
     private int selectedCommentId;
     private int selectedCommentIdCreatedBy;
     private int selectedPermissionId;
@@ -62,8 +65,10 @@ public class DocumentEditor extends JPanel {
 
         add(textArea, BorderLayout.CENTER);
 
+        // After we add the text area, put the content of the latest version of this document in that text area
         reloadFile();
 
+        // Create other GUI components that will be used when adding/updating comments or permissions
         initComponents();
     }
 
@@ -112,6 +117,7 @@ public class DocumentEditor extends JPanel {
             return;
         }
 
+        // The way we implement saving is to add a new version for the document
         Version newFileVersion = new Version(
             0, 
             document.fileId, 
@@ -127,7 +133,7 @@ public class DocumentEditor extends JPanel {
 
     private void reloadFile()
     {
-        // Run the same code again to load content from latest version of this document
+        // Load content from latest version of this document
         textArea.setText(docRepo.getLatestFileVersionContent(document.fileId, MainFrame.window.currentUser.userId));
     }
 
@@ -158,6 +164,7 @@ public class DocumentEditor extends JPanel {
         versionUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
+    // Show a dialog where a user can manage document versions, and can maybe go to a previous version
     private void manageVersions()
     {
         loadVersionList();
@@ -178,6 +185,7 @@ public class DocumentEditor extends JPanel {
         );
 
         if (result == JOptionPane.OK_OPTION){
+            // Switch to a previous version of the document by adding another version of the document with the same content
             String versionContent = docRepo.getVersionContentById(selectedVersionId);
             
             Version newFileVersion = new Version(
@@ -196,6 +204,7 @@ public class DocumentEditor extends JPanel {
         }
     }
 
+    // Show a dialog where a user can add a comment
     private void addComment()
     {
         if (
@@ -224,6 +233,7 @@ public class DocumentEditor extends JPanel {
         toggleCommentVisibility();
     }
 
+    // Show a dialog where a user can edit a comment
     private void editComment()
     {
         if (document.ownerId != MainFrame.window.currentUser.userId && MainFrame.window.currentUser.userId != selectedCommentIdCreatedBy){
@@ -264,6 +274,7 @@ public class DocumentEditor extends JPanel {
         toggleCommentVisibility();
     }
 
+    // Show a dialog where a user can add a permission for a user based off their email
     private void addPermission()
     {
         if (document.ownerId != MainFrame.window.currentUser.userId){
@@ -315,6 +326,7 @@ public class DocumentEditor extends JPanel {
         }
     }
 
+    // Show a dialog where a user can edit the abilities of a permission for a user
     private void editPermission()
     {
         if (document.ownerId != MainFrame.window.currentUser.userId){
@@ -380,6 +392,7 @@ public class DocumentEditor extends JPanel {
         togglePermissionVisibility();
     }
 
+    // Refresh comment list, which is useful to show updates when we add or delete comments
     private void loadCommentList()
     {
         commentListPanel.removeAll();
@@ -421,6 +434,7 @@ public class DocumentEditor extends JPanel {
         commentListPanel.repaint();
     }
 
+    // Refresh permission list, which is useful to show updates when we add or delete permissions
     private void loadPermissionList()
     {
         permissionListPanel.removeAll();
@@ -464,6 +478,7 @@ public class DocumentEditor extends JPanel {
         permissionListPanel.repaint();
     }
 
+    // Refresh version list, which is useful to show updates when we add or delete versions
     private void loadVersionList()
     {
         versionListPanel.removeAll();

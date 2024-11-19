@@ -24,6 +24,7 @@ public class MainFrame extends JFrame
     public static MainFrame window;
     private Connection connection = null;
 
+    // Define user class here since most of the time it is used here
     public static class User
     {
         public int userId;
@@ -37,6 +38,7 @@ public class MainFrame extends JFrame
         }
     }
 
+    // Keep track of the current user logged in
     public User currentUser;
 
     // For keeping track of document editor instances. Entries refer to document ids
@@ -53,6 +55,7 @@ public class MainFrame extends JFrame
         setBounds(100, 100, 1280, 720);
 
         if (connection != null){
+            // If a user isn't logged in, keep showing the login dialog, unless they explicitly choose to close the app
             while (currentUser == null)
             {
                 LoginDialog loginDialog = new LoginDialog(this, new UserRepository(connection));
@@ -77,6 +80,7 @@ public class MainFrame extends JFrame
 
             initComponents();
 
+            // Keep permanenet tabs for file explorer and team explorer, since we always want the user to be able to browse files and teams
             tabbedPane.add("File Explorer", new FileExplorer(new DocumentRepository(connection)));
             tabbedPane.add("Team Explorer", new TeamExplorer(new TeamRepository(connection), new UserRepository(connection)));
 
@@ -91,6 +95,7 @@ public class MainFrame extends JFrame
 
     private void attemptConnection()
     {
+        // Tell the user that a connection to the mysql database is being attempted
         JDialog dialog = new JDialog();
         dialog.setTitle("Connection Status");
         dialog.setSize(300, 150);
@@ -106,14 +111,19 @@ public class MainFrame extends JFrame
         try{
             // Attempt connection
             String url = "jdbc:mysql://localhost:3306/documents";
+
+            // This user is from db-config/create-user.sql
             String userame = "documentDb";
             String password = "cps510DocumentManagementSystem";
+
+            // Use jdbc mysql driver for connection
             connection = DriverManager.getConnection(url, userame, password);
 
             messageLabel.setText("Connected successfully!");
             Thread.sleep(1000);
         }
         catch(Exception e){
+            // If the connection fails, and error will be thrown, and the user will be notified with a dialog
             dialog.dispose();
             JOptionPane.showConfirmDialog(null, "The connection to the database failed. Click to close application", "Connection Status", JOptionPane.CLOSED_OPTION);
         }
@@ -132,12 +142,13 @@ public class MainFrame extends JFrame
                 return;
             }
         }
-        
 
+        // Create an instance of document editor using the instance passed in as an argument
         JPanel tabContent = new DocumentEditor(document, new DocumentRepository(connection), new UserRepository(connection));
         tabbedPane.addTab(document.fileName, tabContent);
 
-        // Add a tab with a close button
+        // Document editor tabs need to have a close button, since multiple document editors can be open at once
+
         int index = tabbedPane.indexOfComponent(tabContent);
         JPanel tabPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,0,0));
         tabPanel.setOpaque(false);

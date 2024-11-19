@@ -29,6 +29,7 @@ import ui.MainFrame.User;
 
 public class TeamExplorer extends JPanel {
     
+    // Explicitly define a table model for teams 
     class TeamTableModel extends AbstractTableModel
     {
         private String[] columnNames = {"Name", "# Members", "Status"};
@@ -93,9 +94,11 @@ public class TeamExplorer extends JPanel {
     private String searchQuery;
     private TeamTableModel teamTableModel;
 
+    // We need both team and user related content, since we need to find users based on email to add them to teams
     private TeamRepository teamRepo;
     private UserRepository userRepo;
 
+    // Have global variables for selected ids to refer to when adding, deleting, updating, etc...
     private int selectedTeamId;
     private int selectedMemberId;
 
@@ -114,6 +117,7 @@ public class TeamExplorer extends JPanel {
         };
         
         searchQuery = "";
+        // Load the initial table content
         updateModel(searchQuery);
 
         JTable teamTable = initTable();
@@ -136,6 +140,7 @@ public class TeamExplorer extends JPanel {
 
         add(new JScrollPane(teamTable), gbc);
 
+        // Create other GUI components that will be used when adding/updating teams or members to teams
         initComponents();
     }
 
@@ -211,6 +216,7 @@ public class TeamExplorer extends JPanel {
         return searchField;
     }
 
+    // Create the JTable instance that will use our explicitly defined table model
     private JTable initTable()
     {
         JTable table = new JTable(teamTableModel);
@@ -266,6 +272,7 @@ public class TeamExplorer extends JPanel {
         return table;
     }
 
+    // Where the table is updated
     private void updateModel(String searchQuery)
     {
         teamTableModel.clear();
@@ -275,6 +282,7 @@ public class TeamExplorer extends JPanel {
         }
     }
 
+    // Filter data by name based on a search query, which the user can input in the search text field in the menu
     private ArrayList<Team> getFilteredData(String searchQuery)
     {
         ArrayList<Team> filteredData = new ArrayList<Team>();
@@ -290,6 +298,7 @@ public class TeamExplorer extends JPanel {
         return filteredData;
     }
 
+    // Show a dialog where a user can create a new team and also add a description for the team
     private void createNewTeam()
     {
         JPanel createNewTeamDialogPanel = new JPanel();
@@ -326,8 +335,10 @@ public class TeamExplorer extends JPanel {
         }
     }
 
+    // Show a dialog where users can add or remove members from a team
     private void manageMembers()
     {
+        // Load team members for the selected team
         loadMemberList();
 
         memberDialogPanel = new JPanel();
@@ -343,6 +354,7 @@ public class TeamExplorer extends JPanel {
         JOptionPane.showMessageDialog(this, memberDialogPanel, "Manage Members", JOptionPane.PLAIN_MESSAGE);
     }
 
+    // Refresh member list, which is useful to show updates when we add or remove members
     private void loadMemberList()
     {
         memberListPanel.removeAll();
@@ -398,6 +410,7 @@ public class TeamExplorer extends JPanel {
         memberDialogPanel.repaint();
     }
 
+    // Show a dialog where the user can add the email of the user they want added to the selected team, and display any errors
     private void addMember()
     {
         String email = JOptionPane.showInputDialog(this, "Add member to team using email");
@@ -434,11 +447,13 @@ public class TeamExplorer extends JPanel {
         updateModel(searchQuery);
     }
 
+    // Show the popup menu for updating teams
     private void showTeamUpdateMenu(MouseEvent e)
     {
         teamUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
     }
 
+    // Show the popup menu for updating team members
     private void showMemberUpdateMenu(MouseEvent e)
     {
         memberUpdateMenu.show(e.getComponent(), e.getX(), e.getY());
@@ -468,7 +483,6 @@ public class TeamExplorer extends JPanel {
     }
 
     // GUI Components
-
     JPopupMenu teamUpdateMenu;
 
     JPopupMenu memberUpdateMenu;

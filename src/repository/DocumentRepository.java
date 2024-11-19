@@ -178,7 +178,7 @@ public class DocumentRepository {
 
     public String getPathOfFolder(int parentFolderId)
     {
-        if (parentFolderId == 0) return "";
+        if (parentFolderId == 0) return ""; // Need to explicitly define when folderId or parentFolderId=0, since ids start from 1
         try {
             PreparedStatement statement = connection.prepareStatement("SELECT folder_path FROM parent_folder WHERE parent_folder_id=" + parentFolderId);
             ResultSet rs = statement.executeQuery();
@@ -474,6 +474,7 @@ public class DocumentRepository {
         }
     }
 
+    // Add a document, and also an initial version with no content, as well as a permission that refers to the document owner userId
     public boolean addDocument(Document document)
     {
         try {
@@ -517,6 +518,7 @@ public class DocumentRepository {
         }
     }
 
+    // Add a folder, as well as a permission that refers to the folder owner userId
     public boolean addFolder(Folder folder)
     {
         try {
@@ -559,6 +561,7 @@ public class DocumentRepository {
         }
     }
 
+    // Update folder name, as well as folder path entries in the parent_folder table
     public boolean updateFolderName(int folderId, String newName)
     {
         try {
@@ -585,7 +588,7 @@ public class DocumentRepository {
         }
     }
 
-    // Update parentFolder path based on new name
+    // Update parentFolder path based on new name, then recursively update paths of children folders
     public boolean updateParentFolderPath(int parentFolderId, String newName)
     {
         if (parentFolderId == 0) return true;
@@ -628,6 +631,7 @@ public class DocumentRepository {
         }
     }
 
+    // Add parent folder and store path based on name and path of parent folder of the folder being inserted
     public boolean addParentFolder(int folderId, String name)
     {
         try {
@@ -649,6 +653,8 @@ public class DocumentRepository {
             if (permission.folderId == 0) return true;
             if (getUserPermForFolder(permission.folderId, permission.userId) != null) return true;
         }
+
+        // Avoid adding permissions for a file if the permission already exists
         if (permission.fileId != null){
             if (getUserPermForDocument(permission.fileId, permission.userId) != null) return true;
         }
@@ -666,7 +672,9 @@ public class DocumentRepository {
                 statement.setObject(5, permission.teamId);
                 statement.setInt(6, permission.abilities);
                 return statement.executeUpdate() > 0 &&
-                // Add perms for parent folders
+
+                // Get parent folder id based on either the fileId or folderId of this permission instance, then add perms for parent folders
+                // We need to do this so if User A gives a permission to some file in a directory that User B didn't have perms on already, they can see the directly the file is in when they open the file explorer
                 permission.fileId == null ?
                 addUserPermForItem(new Permission(0,null,getParentFolderIdOfFolder(permission.folderId),permission.userId,permission.teamId,permission.abilities)):
                 addUserPermForItem(new Permission(0,null,getParentFolderIdOfDocument(permission.fileId),permission.userId,permission.teamId,permission.abilities));

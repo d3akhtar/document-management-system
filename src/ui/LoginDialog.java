@@ -11,6 +11,7 @@ import repository.UserRepository;
 
 public class LoginDialog extends JDialog {
     
+    // We only need user related info for anything related to logging in
     private UserRepository userRepo;
 
     public LoginDialog(JFrame parent, UserRepository userRepo)
@@ -21,6 +22,7 @@ public class LoginDialog extends JDialog {
         setSize(500, 200);
         setLocationRelativeTo(parent);
 
+        // Add a tab for logging in or signing up
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Log In", loginSection());
         tabbedPane.addTab("Sign Up", signUpPanel());
@@ -28,6 +30,7 @@ public class LoginDialog extends JDialog {
         setContentPane(tabbedPane);
     }
 
+    // Return a JPanel where a user can enter login info
     private JPanel loginSection()
     {
         JPanel loginPanel = new JPanel();
@@ -60,6 +63,7 @@ public class LoginDialog extends JDialog {
         return loginPanel;
     }
 
+    // Return a JPanel where a user can enter sign up info
     private JPanel signUpPanel()
     {
         JPanel signUpPanel = new JPanel();
@@ -96,6 +100,7 @@ public class LoginDialog extends JDialog {
         return signUpPanel;
     }
 
+    // Attempt a login. On failure, notify the user with a dialog
     private void login()
     {
         String email = loginEmailField.getText();
@@ -109,6 +114,7 @@ public class LoginDialog extends JDialog {
         }
     }
 
+    // Attempt to signup. On failure, notify the user with a dialog about why the failure might have happened (possible duplicate email)
     private void signUp()
     {
         boolean success = userRepo.addUser(signUpUsernameField.getText(), signUpEmailField.getText(), new String(signUpPasswordField.getPassword()));
